@@ -218,6 +218,9 @@ serve() {
 # Repos path - modify this for different systems
 export REPOS_PATH="$HOME/repos"
 
+# Python development tools configuration
+export RUFF_CONFIG="$REPOS_PATH/system-configs/ruff.toml"
+
 # Show colorized keybindings reference
 alias keys="$REPOS_PATH/system-configs/show-keys"
 
