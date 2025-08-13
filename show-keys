@@ -48,6 +48,7 @@ echo -e "\033[32mgrep → rg\033[0m              - \033[35mRipgrep\033[0m       
 echo -e "\033[32mextract <file>\033[0m         - \033[35mExtract any archive\033[0m       | \033[32mmkcd <dir>\033[0m             - \033[35mMake and cd\033[0m"
 echo -e "\033[32mkillp <proc>\033[0m           - \033[35mKill by name\033[0m              | \033[32mserve [port]\033[0m           - \033[35mHTTP server\033[0m"
 echo -e "\033[32mnow/nowdate\033[0m            - \033[35mCurrent time/date\033[0m         | \033[32mpath\033[0m                   - \033[35mShow PATH nicely\033[0m"
+echo -e "\033[32mcdsc\033[0m                   - \033[35mGo to system-configs\033[0m      | \033[32mcdnv\033[0m                   - \033[35mGo to nvim config\033[0m"
 echo ""
 
 echo -e "\033[1;33m🎨 Theme & Status\033[0m"
