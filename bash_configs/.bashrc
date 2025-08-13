@@ -226,7 +226,7 @@ alias keys="$REPOS_PATH/system-configs/show-keys"
 
 # Quick navigation aliases
 alias cdsc="cd $REPOS_PATH/system-configs"
-alias cdnv="cd $REPOS_PATH/nvim"
+alias cdnv="cd ~/.config/nvim"
 
 # Use neovim instead of vim
 alias vim='nvim'
