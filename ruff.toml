@@ -5,8 +5,8 @@
 # Use current Python version
 target-version = "py3"
 
-# Set line length to 79 (PEP 8 standard)
-line-length = 79
+# Set line length to 80 characters
+line-length = 80
 
 # Disable auto-fixing - only highlight issues
 fix = false
