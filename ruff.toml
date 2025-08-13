@@ -1,0 +1,92 @@
+# Ruff configuration with Pylance-like rules
+# https://docs.astral.sh/ruff/
+
+[tool.ruff]
+# Use current Python version
+target-version = "py3"
+
+# Set line length to 79 (PEP 8 standard)
+line-length = 79
+
+# Disable auto-fixing - only highlight issues
+fix = false
+show-fixes = true
+
+# Exclude common directories
+exclude = [
+    ".bzr", ".direnv", ".eggs", ".git", ".hg", ".mypy_cache", ".nox",
+    ".pants.d", ".pytype", ".ruff_cache", ".svn", ".tox", ".venv",
+    "__pypackages__", "_build", "buck-out", "build", "dist", "node_modules",
+    "venv", "migrations",
+]
+
+[tool.ruff.lint]
+# Select rules similar to Pylance/pylint defaults
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings  
+    "F",      # Pyflakes (undefined names, unused imports, etc.)
+    "I",      # isort (import sorting)
+    "N",      # pep8-naming
+    "UP",     # pyupgrade (Python version upgrades)
+    "B",      # flake8-bugbear (likely bugs)
+    "A",      # flake8-builtins (shadowing builtins)
+    "C4",     # flake8-comprehensions
+    "T10",    # flake8-debugger
+    "ISC",    # flake8-implicit-str-concat
+    "ICN",    # flake8-import-conventions
+    "PIE",    # flake8-pie
+    "PT",     # flake8-pytest-style
+    "RSE",    # flake8-raise
+    "RET",    # flake8-return
+    "SIM",    # flake8-simplify
+    "ARG",    # flake8-unused-arguments
+    "PTH",    # flake8-use-pathlib
+    "ERA",    # eradicate (commented code)
+    "PGH",    # pygrep-hooks
+    "PL",     # Pylint rules
+    "RUF",    # Ruff-specific rules
+]
+
+# Allow print statements and don't ignore formatting issues
+ignore = [
+    "T201",    # Allow print statements in all files
+    "T203",    # Allow pprint statements
+]
+
+# Allow unused variables when they start with underscore
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+# No auto-fixing
+fixable = []
+unfixable = ["ALL"]
+
+[tool.ruff.lint.per-file-ignores]
+# Test files
+"test_*.py" = ["PLR2004", "S101", "ARG"]
+"*_test.py" = ["PLR2004", "S101", "ARG"]
+"tests/**/*.py" = ["PLR2004", "S101", "ARG"]
+
+[tool.ruff.lint.mccabe]
+# Cyclomatic complexity (similar to pylint default)
+max-complexity = 10
+
+[tool.ruff.lint.isort]
+# Import sorting (similar to Pylance)
+combine-as-imports = true
+force-wrap-aliases = true
+split-on-trailing-comma = true
+known-first-party = []
+
+[tool.ruff.lint.flake8-quotes]
+# Use single quotes (primary quote type)
+inline-quotes = "single"
+multiline-quotes = "single"
+docstring-quotes = "single"
+
+[tool.ruff.format]
+# Format settings
+quote-style = "single"
+indent-style = "space"
+line-ending = "auto"
+skip-magic-trailing-comma = false

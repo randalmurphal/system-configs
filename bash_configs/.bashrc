@@ -221,6 +221,10 @@ export REPOS_PATH="$HOME/repos"
 # Show colorized keybindings reference
 alias keys="$REPOS_PATH/system-configs/show-keys"
 
+# Use neovim instead of vim
+alias vim='nvim'
+alias vi='nvim'
+
 # ========================================
 # MODERN TOOL REPLACEMENTS
 # ========================================
