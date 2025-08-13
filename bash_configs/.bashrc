@@ -224,6 +224,10 @@ export RUFF_CONFIG="$REPOS_PATH/system-configs/ruff.toml"
 # Show colorized keybindings reference
 alias keys="$REPOS_PATH/system-configs/show-keys"
 
+# Quick navigation aliases
+alias cdsc="cd $REPOS_PATH/system-configs"
+alias cdnv="cd $REPOS_PATH/nvim"
+
 # Use neovim instead of vim
 alias vim='nvim'
 alias vi='nvim'
