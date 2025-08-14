@@ -8,6 +8,15 @@ case $- in
       *) return;;
 esac
 
+# ========================================
+# PYTHON VIRTUAL ENVIRONMENT
+# ========================================
+
+# Activate Python virtual environment if it exists
+if [ -f "VENV_PATH_PLACEHOLDER/bin/activate" ]; then
+    source "VENV_PATH_PLACEHOLDER/bin/activate"
+fi
+
 # don't put duplicate lines or lines starting with space in the history.
 # See bash(1) for more options
 HISTCONTROL=ignoreboth
@@ -91,6 +100,23 @@ fi
 # ========================================
 # FUNCTIONAL PROMPT OPTIONS
 # ========================================
+# 
+#        ░█▀▀█ ░█▀▀█ ░█▄─░█ ░█▀▀▄ █──█ ▀ ░█▀▀▀
+#        ░█▄▄▀ ░█▄▄█ ░█░█░█ ░█─░█ █▄▄█ ▀ ░█▀▀▀
+#        ░█─░█ ░█─░█ ░█──▀█ ░█▄▄▀ ▄▄▄█ ▀ ░█▄▄▄
+#            ████████╗███████╗██████╗ ███╗   ███╗██╗███╗   ██╗ █████╗ ██╗     
+#            ╚══██╔══╝██╔════╝██╔══██╗████╗ ████║██║████╗  ██║██╔══██╗██║     
+#               ██║   █████╗  ██████╔╝██╔████╔██║██║██╔██╗ ██║███████║██║     
+#               ██║   ██╔══╝  ██╔══██╗██║╚██╔╝██║██║██║╚██╗██║██╔══██║██║     
+#               ██║   ███████╗██║  ██║██║ ╚═╝ ██║██║██║ ╚████║██║  ██║███████╗
+#               ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝
+#                     ███████╗██╗   ██╗██████╗ ███████╗██████╗ ██████╗  ██████╗ ██╗    ██╗███████╗██████╗ 
+#                     ██╔════╝██║   ██║██╔══██╗██╔════╝██╔══██╗██╔══██╗██╔═══██╗██║    ██║██╔════╝██╔══██╗
+#                     ███████╗██║   ██║██████╔╝█████╗  ██████╔╝██████╔╝██║   ██║██║ █╗ ██║█████╗  ██████╔╝
+#                     ╚════██║██║   ██║██╔═══╝ ██╔══╝  ██╔══██╗██╔═══╝ ██║   ██║██║███╗██║██╔══╝  ██╔══██╗
+#                     ███████║╚██████╔╝██║     ███████╗██║  ██║██║     ╚██████╔╝╚███╔███╔╝███████╗██║  ██║
+#                     ╚══════╝ ╚═════╝ ╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝      ╚═════╝  ╚══╝╚══╝ ╚══════╝╚═╝  ╚═╝
+#
 
 # Function to get git branch
 parse_git_branch() {
@@ -146,37 +172,45 @@ export HISTCONTROL=ignoreboth:erasedups
 export HISTTIMEFORMAT="%Y-%m-%d %H:%M:%S "
 shopt -s histappend
 
-# Useful aliases
-alias ls='ls -la --color=auto'
-alias ..='cd ..'
-alias ...='cd ../..'
-alias ....='cd ../../..'
-alias tree='tree -C'
-alias df='df -h'
-alias du='du -h'
-alias free='free -h'
-alias grep='grep --color=auto'
-alias mkdir='mkdir -pv'
-alias wget='wget -c'
-alias path='echo -e ${PATH//:/\\n}'
-alias now='date +"%T"'
-alias nowtime=now
-alias nowdate='date +"%d-%m-%Y"'
+# ═══════════════════════════════════════════════════════════════════════════════
+# 🚀 RANDY'S EPIC ALIASES - BECAUSE LIFE'S TOO SHORT FOR LONG COMMANDS 🚀
+# ═══════════════════════════════════════════════════════════════════════════════
 
-# Git aliases
-alias gs='git status'
-alias ga='git add'
-alias gc='git commit'
-alias gp='git push'
-alias gl='git log --oneline'
-alias gd='git diff'
-alias gb='git branch'
-alias gco='git checkout'
+# Navigation shortcuts - 🧭 Directory surfing made easy
+alias ls='ls -la --color=auto'        # 📂 List all files with colors
+alias ..='cd ..'                      # ⬆️  Go up one directory  
+alias ...='cd ../..'                  # ⬆️⬆️ Go up two directories
+alias ....='cd ../../..'              # ⬆️⬆️⬆️ Go up three directories (because why not?)
 
-# Safety aliases
-alias rm='rm -i'
-alias cp='cp -i'
-alias mv='mv -i'
+# File operations - 📁 File management wizardry
+alias tree='tree -C'                  # 🌳 Colorful directory tree
+alias df='df -h'                      # 💽 Disk space in human format
+alias du='du -h'                      # 📊 Directory sizes in human format
+alias free='free -h'                  # 🧠 Memory usage in human format
+alias grep='grep --color=auto'        # 🔍 Colorful text searching
+alias mkdir='mkdir -pv'               # 📁 Create directories with feedback
+alias wget='wget -c'                  # 🌐 Resume downloads automatically
+
+# System info shortcuts - 📊 Quick system stats
+alias path='echo -e ${PATH//:/\\n}'   # 🛤️  Show PATH in readable format
+alias now='date +"%T"'                # 🕐 Current time
+alias nowtime=now                     # 🕐 Time alias (because redundancy rocks)
+alias nowdate='date +"%d-%m-%Y"'      # 📅 Current date
+
+# Git shortcuts - 🐙 Git wizardry at your fingertips
+alias gs='git status'                 # 📊 Show git status
+alias ga='git add'                    # ➕ Add files to staging
+alias gc='git commit'                 # 💾 Commit changes
+alias gp='git push'                   # 🚀 Push to remote
+alias gl='git log --oneline'          # 📜 Compact git history
+alias gd='git diff'                   # 🔍 Show differences
+alias gb='git branch'                 # 🌿 List branches
+alias gco='git checkout'              # 🔄 Switch branches/checkout
+
+# Safety net aliases - 🛡️ Protection from "oops" moments
+alias rm='rm -i'                      # 🗑️  Confirm before deleting
+alias cp='cp -i'                      # 📋 Confirm before overwriting
+alias mv='mv -i'                      # 🚚 Confirm before moving
 
 # Extract function for various archive types
 extract() {
@@ -233,17 +267,40 @@ alias vim='nvim'
 alias vi='nvim'
 
 # ========================================
-# MODERN TOOL REPLACEMENTS
+# TMUX AUTO-START
 # ========================================
 
-# Better command line tools (only alias if tool exists)
-command -v bat >/dev/null 2>&1 && alias cat='bat --style=plain'
-command -v exa >/dev/null 2>&1 && alias ls='exa -la --git'
-command -v fd >/dev/null 2>&1 && alias find='fd'
-command -v rg >/dev/null 2>&1 && alias grep='rg'
-command -v dust >/dev/null 2>&1 && alias du='dust'
-command -v htop >/dev/null 2>&1 && alias top='htop'
-command -v gping >/dev/null 2>&1 && alias ping='gping'
+# Auto-start tmux session "main" on interactive shell startup
+# Only if we're not already in a tmux session and tmux is available
+if command -v tmux >/dev/null 2>&1 && [ -z "$TMUX" ] && [ -n "$PS1" ]; then
+    # Check if session "main" exists
+    if tmux has-session -t main 2>/dev/null; then
+        # Session exists, attach to it
+        exec tmux attach-session -t main
+    else
+        # Session doesn't exist, create and attach
+        exec tmux new-session -s main
+    fi
+fi
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#           🔮 MODERN TOOL REPLACEMENTS - LEVEL UP YOUR CLI GAME! 🔮
+# ═══════════════════════════════════════════════════════════════════════════════
+#     ██████╗ ██╗   ██╗███████╗████████╗    ██████╗ ██╗   ██╗███████╗████████╗██╗
+#     ██╔══██╗██║   ██║██╔════╝╚══██╔══╝    ██╔══██╗██║   ██║██╔════╝╚══██╔══╝██║
+#     ██████╔╝██║   ██║███████╗   ██║       ██████╔╝██║   ██║███████╗   ██║   ██║
+#     ██╔══██╗██║   ██║╚════██║   ██║       ██╔══██╗██║   ██║╚════██║   ██║   ╚═╝
+#     ██║  ██║╚██████╔╝███████║   ██║       ██████╔╝╚██████╔╝███████║   ██║   ██╗
+#     ╚═╝  ╚═╝ ╚═════╝ ╚══════╝   ╚═╝       ╚═════╝  ╚═════╝ ╚══════╝   ╚═╝   ╚═╝
+
+# 🎯 Smart upgrades - Only if the tools are installed
+command -v bat >/dev/null 2>&1 && alias cat='bat --style=plain'     # 🦇 Syntax highlighting cat
+command -v exa >/dev/null 2>&1 && alias ls='exa -la --git'          # 📂 Better ls with git status
+command -v fd >/dev/null 2>&1 && alias find='fd'                    # 🔍 Blazing fast file finder
+command -v rg >/dev/null 2>&1 && alias grep='rg'                    # ⚡ Ripgrep - grep on steroids
+command -v dust >/dev/null 2>&1 && alias du='dust'                  # 🌪️  Better disk usage analyzer
+command -v htop >/dev/null 2>&1 && alias top='htop'                 # 📊 Interactive process viewer
+command -v gping >/dev/null 2>&1 && alias ping='gping'              # 📈 Graph-based ping
 
 # ========================================
 # ENHANCED HISTORY SEARCH

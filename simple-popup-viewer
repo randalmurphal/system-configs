@@ -1,0 +1,23 @@
+#!/bin/bash
+# Simple popup viewer that shows content immediately and responds to q
+
+# Read all content
+content=$(cat)
+
+# Clear screen and show content immediately
+clear
+echo "$content"
+
+# Simple prompt at bottom
+echo
+echo -e "\033[1;36m📚 Press 'q' to quit\033[0m"
+
+# Wait for q key
+while true; do
+    read -n 1 -s key
+    case "$key" in
+        'q'|'Q')
+            exit 0
+            ;;
+    esac
+done
