@@ -356,45 +356,58 @@ setup_shell_config() {
         sed -e "s|/home/randy/repos|$REPOS_PATH|g" -e "s|/Users/randy/repos|$REPOS_PATH|g" -e "s|if \[ -f \"VENV_PATH_PLACEHOLDER|# if [ -f \"VENV_PATH_PLACEHOLDER|g" -e "s|source \"VENV_PATH_PLACEHOLDER|# source \"VENV_PATH_PLACEHOLDER|g" "$REPOS_PATH/system-configs/bash_configs/.bashrc" > "$temp_additions"
     fi
     
-    # Check if our configurations are already present
-    if grep -q "# Randy's Development Environment Configuration" "$SHELL_CONFIG_FILE" 2>/dev/null; then
-        print_warning "Randy's configurations already present in $CONFIG_NAME"
-        echo "Do you want to update them? (y/n)"
+    # Define start and end markers
+    START_MARKER="# === START: Randy's Development Environment Configuration ==="
+    END_MARKER="# === END: Randy's Development Environment Configuration ==="
+    
+    # Check if shell config exists, if not create it
+    if [ ! -f "$SHELL_CONFIG_FILE" ]; then
+        print_info "Creating new $CONFIG_NAME file"
+        touch "$SHELL_CONFIG_FILE"
+    fi
+    
+    # Check if our configuration section already exists
+    if grep -q "$START_MARKER" "$SHELL_CONFIG_FILE" 2>/dev/null; then
+        print_warning "Randy's configuration section found in $CONFIG_NAME"
+        echo "Do you want to remove the existing section and add the latest configuration? (y/n)"
         read -r update_choice
         if [ "$update_choice" = "y" ] || [ "$update_choice" = "Y" ]; then
-            # Check for existing aliases and functions that might conflict
-            check_existing_configurations "$SHELL_CONFIG_FILE"
-            
-            # Remove old Randy's configurations and add new ones
             # Create backup first
             cp "$SHELL_CONFIG_FILE" "$SHELL_CONFIG_FILE.backup-$(date +%Y%m%d-%H%M%S)"
             print_info "Backup created: $SHELL_CONFIG_FILE.backup-$(date +%Y%m%d-%H%M%S)"
             
-            # Extract content before our marker
-            sed '/# Randy'\''s Development Environment Configuration/,$d' "$SHELL_CONFIG_FILE" > "$SHELL_CONFIG_FILE.tmp"
-            
-            # Add our new configurations
-            echo -e "\n# Randy's Development Environment Configuration" >> "$SHELL_CONFIG_FILE.tmp"
-            cat "$temp_additions" >> "$SHELL_CONFIG_FILE.tmp"
-            
+            # Remove existing Randy's section (between markers) 
+            # Escape special characters in markers for sed
+            START_ESCAPED=$(printf '%s\n' "$START_MARKER" | sed 's/[[\.*^$()+?{|]/\\&/g')
+            END_ESCAPED=$(printf '%s\n' "$END_MARKER" | sed 's/[[\.*^$()+?{|]/\\&/g')
+            sed "/$START_ESCAPED/,/$END_ESCAPED/d" "$SHELL_CONFIG_FILE" > "$SHELL_CONFIG_FILE.tmp"
             mv "$SHELL_CONFIG_FILE.tmp" "$SHELL_CONFIG_FILE"
-            print_success "Shell configurations updated"
+            print_info "Removed existing Randy's configuration section"
         else
             print_info "Keeping existing shell configurations"
+            rm "$temp_additions"
+            return
         fi
+    fi
+    
+    # Check for conflicts with existing aliases/functions (outside our markers)
+    check_existing_configurations "$SHELL_CONFIG_FILE"
+    
+    # Add our configurations with markers
+    echo -e "\n$START_MARKER" >> "$SHELL_CONFIG_FILE"
+    cat "$temp_additions" >> "$SHELL_CONFIG_FILE"
+    echo -e "$END_MARKER" >> "$SHELL_CONFIG_FILE"
+    
+    # Replace any remaining placeholders in the entire file (for existing content outside markers)
+    if [ -n "$VENV_PATH" ]; then
+        sed -i.tmp -e "s|VENV_PATH_PLACEHOLDER|$VENV_PATH|g" "$SHELL_CONFIG_FILE"
+        rm "$SHELL_CONFIG_FILE.tmp" 2>/dev/null
+        print_info "Replaced VENV_PATH_PLACEHOLDER with $VENV_PATH throughout $CONFIG_NAME"
+    fi
+    
+    if grep -q "$START_MARKER" "$SHELL_CONFIG_FILE" 2>/dev/null && [ -f "$SHELL_CONFIG_FILE.backup-$(date +%Y%m%d-%H%M%S)" ] 2>/dev/null; then
+        print_success "Shell configurations updated in $CONFIG_NAME"
     else
-        # Check if shell config exists, if not create it
-        if [ ! -f "$SHELL_CONFIG_FILE" ]; then
-            print_info "Creating new $CONFIG_NAME file"
-            touch "$SHELL_CONFIG_FILE"
-        else
-            # Check for existing aliases and functions that might conflict
-            check_existing_configurations "$SHELL_CONFIG_FILE"
-        fi
-        
-        # Append our configurations to existing shell config
-        echo -e "\n# Randy's Development Environment Configuration" >> "$SHELL_CONFIG_FILE"
-        cat "$temp_additions" >> "$SHELL_CONFIG_FILE"
         print_success "Shell configurations added to $CONFIG_NAME"
     fi
     
@@ -655,17 +668,12 @@ EOF
     echo
     echo -e "${PURPLE}"
     cat << 'EOF'
-      ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄ 
-     ▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌
-     ▐░█▀▀▀▀▀▀▀█░▌▐░█▀▀▀▀▀▀▀█░▌▐░█▀▀▀▀▀▀▀▀▀ ▐░█▀▀▀▀▀▀▀▀▀ 
-     ▐░▌       ▐░▌▐░▌       ▐░▌▐░▌          ▐░▌          
-     ▐░█▄▄▄▄▄▄▄█░▌▐░▌       ▐░▌▐░█▄▄▄▄▄▄▄▄▄ ▐░█▄▄▄▄▄▄▄▄▄ 
-     ▐░░░░░░░░░░░▌▐░▌       ▐░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌
-     ▐░█▀▀▀▀█░█▀▀ ▐░▌       ▐░▌▐░█▀▀▀▀▀▀▀▀▀ ▐░█▀▀▀▀▀▀▀▀▀ 
-     ▐░▌     ▐░▌  ▐░▌       ▐░▌▐░▌          ▐░▌          
-     ▐░▌      ▐░▌ ▐░█▄▄▄▄▄▄▄█░▌▐░█▄▄▄▄▄▄▄▄▄ ▐░█▄▄▄▄▄▄▄▄▄ 
-     ▐░▌       ▐░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌
-      ▀         ▀  ▀▀▀▀▀▀▀▀▀▀▀  ▀▀▀▀▀▀▀▀▀▀▀  ▀▀▀▀▀▀▀▀▀▀▀ 
+     ██████╗  ██████╗ ███╗   ██╗███████╗██╗
+     ██╔══██╗██╔═══██╗████╗  ██║██╔════╝██║
+     ██║  ██║██║   ██║██╔██╗ ██║█████╗  ██║
+     ██║  ██║██║   ██║██║╚██╗██║██╔══╝  ╚═╝
+     ██████╔╝╚██████╔╝██║ ╚████║███████╗██╗
+     ╚═════╝  ╚═════╝ ╚═╝  ╚═══╝╚══════╝╚═╝ 
                                                        
       Happy coding in your epic development environment! 🎮🔥💻
 EOF

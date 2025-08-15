@@ -12,10 +12,7 @@ esac
 # PYTHON VIRTUAL ENVIRONMENT
 # ========================================
 
-# Activate Python virtual environment if it exists
-if [ -f "VENV_PATH_PLACEHOLDER/bin/activate" ]; then
-    source "VENV_PATH_PLACEHOLDER/bin/activate"
-fi
+# (Virtual environment activation moved to end of file)
 
 # don't put duplicate lines or lines starting with space in the history.
 # See bash(1) for more options
@@ -84,7 +81,12 @@ esac
 # enable color support of ls and also add handy aliases
 if [ -x /usr/bin/dircolors ]; then
     test -r ~/.dircolors && eval "$(dircolors -b ~/.dircolors)" || eval "$(dircolors -b)"
-    alias ls='ls --color=auto'
+    # OS-aware ls colors
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        alias ls='ls -G'
+    else
+        alias ls='ls --color=auto'
+    fi
     #alias dir='dir --color=auto'
     #alias vdir='vdir --color=auto'
 
@@ -177,7 +179,12 @@ shopt -s histappend
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Navigation shortcuts - 🧭 Directory surfing made easy
-alias ls='ls -la --color=auto'        # 📂 List all files with colors
+# OS-aware ls with colors
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    alias ls='ls -laG'                   # 📂 List all files with colors (macOS)
+else
+    alias ls='ls -la --color=auto'       # 📂 List all files with colors (Linux)
+fi
 alias ..='cd ..'                      # ⬆️  Go up one directory  
 alias ...='cd ../..'                  # ⬆️⬆️ Go up two directories
 alias ....='cd ../../..'              # ⬆️⬆️⬆️ Go up three directories (because why not?)
@@ -255,8 +262,6 @@ export REPOS_PATH="$HOME/repos"
 # Python development tools configuration
 export RUFF_CONFIG="$REPOS_PATH/system-configs/ruff.toml"
 
-# Show colorized keybindings reference
-alias keys="$REPOS_PATH/system-configs/show-keys"
 
 # Quick navigation aliases
 alias cdsc="cd $REPOS_PATH/system-configs"
@@ -271,8 +276,8 @@ alias vi='nvim'
 # ========================================
 
 # Auto-start tmux session "main" on interactive shell startup
-# Only if we're not already in a tmux session and tmux is available
-if command -v tmux >/dev/null 2>&1 && [ -z "$TMUX" ] && [ -n "$PS1" ]; then
+# Only in "primary" terminal sessions (not IDE integrated terminals or nested shells)
+if command -v tmux >/dev/null 2>&1 && [ -z "$TMUX" ] && [ -n "$PS1" ] && [ "$SHLVL" -eq 1 ]; then
     # Check if session "main" exists
     if tmux has-session -t main 2>/dev/null; then
         # Session exists, attach to it
@@ -335,4 +340,12 @@ if ! shopt -oq posix; then
   elif [ -f /etc/bash_completion ]; then
     . /etc/bash_completion
   fi
+fi
+
+# ========================================
+# ACTIVATE PYTHON VIRTUAL ENVIRONMENT
+# ========================================
+# Activate Python virtual environment at the end (after all other configs)
+if [ -f "VENV_PATH_PLACEHOLDER/bin/activate" ]; then
+    source "VENV_PATH_PLACEHOLDER/bin/activate"
 fi
