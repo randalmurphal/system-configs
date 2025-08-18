@@ -82,6 +82,50 @@ detect_package_manager() {
     print_success "Detected package manager: $PKG_MANAGER ($OS_TYPE)"
 }
 
+# Choose shell (zsh or bash)
+choose_shell() {
+    print_header "SHELL SELECTION"
+    echo -e "Which shell would you like to use as your default?"
+    echo -e "1. ${GREEN}Zsh${NC} (recommended - modern shell with better features)"
+    echo -e "2. ${YELLOW}Bash${NC} (traditional shell)"
+    echo
+    
+    # Check if zsh is already installed
+    if command -v zsh &> /dev/null; then
+        print_success "Zsh is already installed"
+        ZSH_AVAILABLE=true
+    else
+        print_warning "Zsh is not installed - will be installed if selected"
+        ZSH_AVAILABLE=false
+    fi
+    
+    echo -e "Default: ${GREEN}Zsh${NC}"
+    read -p "Enter choice (1 for zsh, 2 for bash, or press Enter for default): " shell_choice
+    
+    case "$shell_choice" in
+        "2"|"bash"|"Bash"|"BASH")
+            CHOSEN_SHELL="bash"
+            print_success "Selected: Bash"
+            ;;
+        "1"|"zsh"|"Zsh"|"ZSH"|"")
+            CHOSEN_SHELL="zsh"
+            print_success "Selected: Zsh"
+            if [ "$ZSH_AVAILABLE" = false ]; then
+                INSTALL_ZSH=true
+                print_info "Zsh will be installed during package installation"
+            fi
+            ;;
+        *)
+            print_warning "Invalid choice, defaulting to Zsh"
+            CHOSEN_SHELL="zsh"
+            if [ "$ZSH_AVAILABLE" = false ]; then
+                INSTALL_ZSH=true
+                print_info "Zsh will be installed during package installation"
+            fi
+            ;;
+    esac
+}
+
 # Get repos path from user
 get_repos_path() {
     print_header "CONFIGURE REPOSITORIES PATH"
@@ -186,22 +230,37 @@ install_system_packages() {
         "brew")
             base_packages="git curl wget tmux neovim python3 cmake unzip"
             modern_tools="bat fd ripgrep htop tree fzf ranger"
+            if [ "$INSTALL_ZSH" = true ]; then
+                base_packages="$base_packages zsh"
+            fi
             ;;
         "apt")
             base_packages="git curl wget tmux neovim python3 python3-pip build-essential cmake unzip"
             modern_tools="bat fd-find ripgrep htop tree fzf ranger"
+            if [ "$INSTALL_ZSH" = true ]; then
+                base_packages="$base_packages zsh"
+            fi
             ;;
         "yum"|"dnf")
             base_packages="git curl wget tmux neovim python3 python3-pip gcc gcc-c++ make cmake unzip"
             modern_tools="bat fd-find ripgrep htop tree fzf ranger"
+            if [ "$INSTALL_ZSH" = true ]; then
+                base_packages="$base_packages zsh"
+            fi
             ;;
         "pacman")
             base_packages="git curl wget tmux neovim python python-pip base-devel cmake unzip"
             modern_tools="bat fd ripgrep htop tree fzf ranger"
+            if [ "$INSTALL_ZSH" = true ]; then
+                base_packages="$base_packages zsh"
+            fi
             ;;
         "zypper")
             base_packages="git curl wget tmux neovim python3 python3-pip gcc gcc-c++ make cmake unzip"
             modern_tools="bat fd ripgrep htop tree fzf ranger"
+            if [ "$INSTALL_ZSH" = true ]; then
+                base_packages="$base_packages zsh"
+            fi
             ;;
     esac
     
@@ -332,15 +391,72 @@ backup_configs() {
     print_success "Configurations backed up to: $backup_dir"
 }
 
-# Setup shell configuration (bashrc on Linux, bash_profile on macOS)
-setup_shell_config() {
-    # Determine which shell config file to use based on OS
-    if [ "$OS_TYPE" = "macos" ]; then
-        SHELL_CONFIG_FILE="$HOME/.bash_profile"
-        CONFIG_NAME="bash_profile"
+# Install Oh My Zsh
+install_oh_my_zsh() {
+    if [ "$CHOSEN_SHELL" != "zsh" ]; then
+        return 0  # Skip if not using zsh
+    fi
+    
+    print_header "INSTALLING OH MY ZSH"
+    
+    if [ -d "$HOME/.oh-my-zsh" ]; then
+        print_success "Oh My Zsh already installed"
+        return 0
+    fi
+    
+    print_info "Installing Oh My Zsh..."
+    
+    # Download and install Oh My Zsh non-interactively
+    if command -v curl &> /dev/null; then
+        RUNZSH=no CHSH=no sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" || {
+            print_error "Failed to install Oh My Zsh via curl"
+            return 1
+        }
+    elif command -v wget &> /dev/null; then
+        RUNZSH=no CHSH=no sh -c "$(wget -O- https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" || {
+            print_error "Failed to install Oh My Zsh via wget"
+            return 1
+        }
     else
-        SHELL_CONFIG_FILE="$HOME/.bashrc"
-        CONFIG_NAME="bashrc"
+        print_error "Neither curl nor wget found - cannot install Oh My Zsh"
+        return 1
+    fi
+    
+    print_success "Oh My Zsh installed successfully"
+    
+    # Install popular plugins
+    print_info "Installing Oh My Zsh plugins..."
+    
+    # Install zsh-autosuggestions
+    if [ ! -d "$HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions" ]; then
+        git clone https://github.com/zsh-users/zsh-autosuggestions ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions || print_warning "Failed to install zsh-autosuggestions"
+    fi
+    
+    # Install zsh-syntax-highlighting
+    if [ ! -d "$HOME/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting" ]; then
+        git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting || print_warning "Failed to install zsh-syntax-highlighting"
+    fi
+    
+    print_success "Oh My Zsh plugins installed"
+}
+
+# Setup shell configuration (supports both bash and zsh)
+setup_shell_config() {
+    # Determine which shell config file and template to use
+    if [ "$CHOSEN_SHELL" = "zsh" ]; then
+        SHELL_CONFIG_FILE="$HOME/.zshrc"
+        CONFIG_NAME="zshrc"
+        CONFIG_TEMPLATE="$REPOS_PATH/system-configs/zsh_configs/.zshrc"
+    else
+        # Bash configuration - determine based on OS
+        if [ "$OS_TYPE" = "macos" ]; then
+            SHELL_CONFIG_FILE="$HOME/.bash_profile"
+            CONFIG_NAME="bash_profile"
+        else
+            SHELL_CONFIG_FILE="$HOME/.bashrc"
+            CONFIG_NAME="bashrc"
+        fi
+        CONFIG_TEMPLATE="$REPOS_PATH/system-configs/bash_configs/.bashrc"
     fi
     
     print_header "CONFIGURING SHELL ($CONFIG_NAME)"
@@ -350,10 +466,10 @@ setup_shell_config() {
     
     # Replace REPOS_PATH and VENV_PATH in the template
     if [ -n "$VENV_PATH" ]; then
-        sed -e "s|/home/randy/repos|$REPOS_PATH|g" -e "s|/Users/randy/repos|$REPOS_PATH|g" -e "s|VENV_PATH_PLACEHOLDER|$VENV_PATH|g" "$REPOS_PATH/system-configs/bash_configs/.bashrc" > "$temp_additions"
+        sed -e "s|REPOS_PATH_PLACEHOLDER|$REPOS_PATH|g" -e "s|VENV_PATH_PLACEHOLDER|$VENV_PATH|g" "$CONFIG_TEMPLATE" > "$temp_additions"
     else
         # If no venv path, comment out the venv section
-        sed -e "s|/home/randy/repos|$REPOS_PATH|g" -e "s|/Users/randy/repos|$REPOS_PATH|g" -e "s|if \[ -f \"VENV_PATH_PLACEHOLDER|# if [ -f \"VENV_PATH_PLACEHOLDER|g" -e "s|source \"VENV_PATH_PLACEHOLDER|# source \"VENV_PATH_PLACEHOLDER|g" "$REPOS_PATH/system-configs/bash_configs/.bashrc" > "$temp_additions"
+        sed -e "s|REPOS_PATH_PLACEHOLDER|$REPOS_PATH|g" -e "s|if \[ -f \"VENV_PATH_PLACEHOLDER|# if [ -f \"VENV_PATH_PLACEHOLDER|g" -e "s|source \"VENV_PATH_PLACEHOLDER|# source \"VENV_PATH_PLACEHOLDER|g" "$CONFIG_TEMPLATE" > "$temp_additions"
     fi
     
     # Define start and end markers
@@ -421,9 +537,16 @@ check_existing_configurations() {
     
     print_info "Checking for potential conflicts in existing configurations..."
     
-    # Common aliases that we'll be overriding
-    local our_aliases="ls grep find cat top du ping vim vi rm cp mv"
-    local our_functions="extract mkcd killp serve parse_git_branch parse_git_dirty"
+    # Common aliases that we'll be overriding (cross-shell)
+    local our_aliases="ls grep find cat top du ping vim vi rm cp mv ll la lt tree bat fd"
+    local our_functions="extract killp serve"
+    
+    # Add shell-specific functions
+    if [ "$CHOSEN_SHELL" = "zsh" ]; then
+        our_functions="$our_functions git_branch virtualenv_info"
+    else
+        our_functions="$our_functions parse_git_branch parse_git_dirty mkcd"
+    fi
     
     # Check for existing aliases
     for alias_name in $our_aliases; do
@@ -576,6 +699,38 @@ setup_git() {
     fi
 }
 
+# Change default shell to selected shell
+change_default_shell() {
+    if [ "$CHOSEN_SHELL" = "bash" ]; then
+        print_info "Default shell will remain as bash"
+        return 0
+    fi
+    
+    print_header "SETTING ZSH AS DEFAULT SHELL"
+    
+    # Check if zsh is in /etc/shells
+    if ! grep -q "$(which zsh)" /etc/shells 2>/dev/null; then
+        print_info "Adding zsh to /etc/shells..."
+        echo "$(which zsh)" | sudo tee -a /etc/shells > /dev/null
+    fi
+    
+    # Check if user's shell is already zsh
+    if [ "$SHELL" = "$(which zsh)" ]; then
+        print_success "Default shell is already zsh"
+        return 0
+    fi
+    
+    print_info "Changing default shell to zsh..."
+    echo "You may need to enter your password to change the default shell."
+    
+    if chsh -s "$(which zsh)"; then
+        print_success "Default shell changed to zsh"
+        print_warning "You'll need to log out and back in for the change to take effect"
+    else
+        print_warning "Failed to change default shell. You can change it manually later with: chsh -s \$(which zsh)"
+    fi
+}
+
 # Install Hack Nerd Font
 install_nerd_font() {
     print_header "INSTALLING HACK NERD FONT"
@@ -646,14 +801,25 @@ EOF
     echo -e "${GREEN}🚀 Your development environment has been supercharged! 🚀${NC}\n"
     
     echo -e "${YELLOW}Next Steps:${NC}"
-    echo -e "1. ${CYAN}Reload your shell:${NC} source ~/.bashrc"
-    echo -e "2. ${CYAN}Start tmux:${NC} tmux"
-    echo -e "3. ${CYAN}Install tmux plugins:${NC} Ctrl+Space + I (in tmux)"
-    echo -e "4. ${CYAN}Test your setup:${NC}"
-    echo -e "   - keys               (show keybinding reference)"
-    echo -e "   - keys --type nvim   (show only nvim bindings)"
+    if [ "$CHOSEN_SHELL" = "zsh" ]; then
+        echo -e "1. ${CYAN}Reload your shell:${NC} source ~/.zshrc  ${YELLOW}(or open a new terminal)${NC}"
+        echo -e "2. ${CYAN}If you changed shells:${NC} Log out and back in to use zsh by default"
+    else
+        if [ "$OS_TYPE" = "macos" ]; then
+            echo -e "1. ${CYAN}Reload your shell:${NC} source ~/.bash_profile"
+        else
+            echo -e "1. ${CYAN}Reload your shell:${NC} source ~/.bashrc"
+        fi
+    fi
+    echo -e "3. ${CYAN}Start tmux:${NC} tmux"
+    echo -e "4. ${CYAN}Install tmux plugins:${NC} Ctrl+Space + I (in tmux)"
+    echo -e "5. ${CYAN}Test your setup:${NC}"
     echo -e "   - cdsc               (go to system-configs)"
     echo -e "   - cdnv               (go to nvim config)"
+    if [ "$CHOSEN_SHELL" = "zsh" ]; then
+        echo -e "   - z <directory>      (smart cd with zoxide)"
+        echo -e "   - zi                 (interactive directory search)"
+    fi
     echo
     echo -e "${YELLOW}Python Development:${NC}"
     echo -e "- Your ruff.toml and pyrightconfig.json are configured"
@@ -706,6 +872,7 @@ EOF
     print_header "EPIC DEVELOPMENT ENVIRONMENT SETUP"
     echo -e "${CYAN}🚀 Preparing to transform your $OS_TYPE machine into a dev powerhouse! 🚀${NC}"
     echo -e "This script will set up your development environment on $OS_TYPE with:"
+    echo -e "• Shell selection (Zsh or Bash) with modern configurations"
     echo -e "• Modern terminal tools and aliases"
     echo -e "• Tmux configuration with plugins"
     echo -e "• Python development tools (ruff, black, pyright)"
@@ -724,6 +891,7 @@ EOF
     fi
     
     # Run setup steps
+    choose_shell
     get_repos_path
     get_python_venv
     backup_configs
@@ -731,9 +899,11 @@ EOF
     setup_ssh_key
     clone_system_configs
     setup_git
+    install_oh_my_zsh
     setup_shell_config
     setup_tmux
     setup_neovim
+    change_default_shell
     install_nerd_font
     show_final_instructions
 }
