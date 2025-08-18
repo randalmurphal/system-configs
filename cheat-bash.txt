@@ -30,7 +30,7 @@
 
 [36m┌─ 🌐 SYSTEM & UTILITIES ───────────────────────────────────────┐[0m
  [32mserve[0m                      - [35mStart HTTP server (port 8000)[0m
- [32mextract [file][0m              - [35mExtract any archive format[0m
+ [32mextract [file][0m             - [35mExtract any archive format[0m
  [32mkillp [name][0m               - [35mFind and kill process by name[0m
  [32mreload[0m                     - [35mReload shell configuration[0m
  [32mpath[0m                       - [35mShow PATH variable (one per line)[0m
@@ -46,14 +46,21 @@
  [32mfzf[0m                        - [35mFuzzy file finder[0m
  [32mranger[0m                     - [35mFile manager[0m
  [32mruff[0m                       - [35mPython linter/formatter[0m
-[36m└───────────────────────────────────────────────────────────────┘[0m
+ [32mls/ll/la[0m                   - [35mEza with git integration[0m
+ [32mlt[0m                         - [35mEza tree view[0m
+ [32mz [dir][0m                    - [35mZoxide (smart cd)[0m
+ [32mzi[0m                         - [35mZoxide interactive[0m
+ [32mgh[0m                         - [35mGitHub CLI[0m
+ [32mlazygit[0m                    - [35mGit TUI interface[0m
+[36m└──────────────────────────────────────────────────────────────┘[0m
 
 [36m┌─ ⚡ PYTHON DEVELOPMENT ───────────────────────────────────────┐[0m
- [32mpip install -e .[0m           - [35mInstall package in dev mode[0m
- [32mpython -m http.server[0m      - [35mStart Python web server[0m
- [32mpython -m venv venv[0m        - [35mCreate virtual environment[0m
- [32msource venv/bin/activate[0m   - [35mActivate virtual environment[0m
- [32mpip freeze > requirements.txt[0m - [35mExport dependencies[0m
+ [32mpip install -e .[0m                - [35mInstall package in dev mode[0m
+ [32mipython[0m                         - [35mEnhanced Python REPL[0m
+ [32mpython -m http.server[0m           - [35mStart Python web server[0m
+ [32mpython -m venv venv[0m             - [35mCreate virtual environment[0m
+ [32msource venv/bin/activate[0m        - [35mActivate virtual environment[0m
+ [32mpip freeze > requirements.txt[0m   - [35mExport dependencies[0m
  [32mpip install -r requirements.txt[0m - [35mInstall from requirements[0m
 [36m└───────────────────────────────────────────────────────────────┘[0m
 

@@ -53,7 +53,7 @@
  [32mN[0m                          - [35mPrevious search result[0m
  [32mEsc[0m                        - [35mClear search highlights[0m
  [32m*[0m                          - [35mSearch word under cursor[0m
- [32m:/old/new/g[0m              - [35mReplace all in file[0m
+ [32m:/old/new/g[0m                - [35mReplace all in file[0m
  [32m:s/old/new[0m                 - [35mReplace in current line[0m
 [36m└───────────────────────────────────────────────────────────┘[0m
 
@@ -81,7 +81,7 @@
  [32m:w[0m                         - [35mSave file[0m
  [32m:wq[0m                        - [35mSave and quit[0m
  [32m:q[0m                         - [35mQuit[0m
- [32m:q\![0m                        - [35mQuit without saving[0m
+ [32m:q\![0m                       - [35mQuit without saving[0m
  [32m:e [file][0m                  - [35mOpen file[0m
  [32m:split[0m                     - [35mHorizontal split[0m
  [32m:vsplit[0m                    - [35mVertical split[0m
