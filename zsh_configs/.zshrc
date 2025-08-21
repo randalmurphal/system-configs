@@ -140,9 +140,7 @@ PROMPT='$(virtualenv_info)[%F{green}%n%f:%F{blue}$(hostname)%f]:%F{8}$(git_branc
 # ========================================
 
 # Python Virtual Environment
-if [ -f "VENV_PATH_PLACEHOLDER/bin/activate" ]; then
-    source "VENV_PATH_PLACEHOLDER/bin/activate"
-fi
+source /opt/envs/py3.13/bin/activate
 
 # Custom Functions
 extract() {
@@ -177,7 +175,7 @@ serve() {
 }
 
 # Environment Variables
-export REPOS_PATH="REPOS_PATH_PLACEHOLDER"
+export REPOS_PATH="$HOME/repos"
 export RUFF_CONFIG="$REPOS_PATH/system-configs/ruff.toml"
 
 # Quick navigation aliases
@@ -212,27 +210,15 @@ alias ..='cd ..'
 alias ...='cd ../..'
 alias ls='eza -la --git'
 
-# Modern CLI aliases - Cross-platform support
+# Modern CLI aliases
 alias ll='eza -la --git'
 alias la='eza -la --git'
 alias lt='eza -la --tree --git'
 alias tree='eza --tree'
-
-# Cross-platform bat alias
-if command -v batcat >/dev/null 2>&1; then
-    alias cat='batcat'
-    alias bat='batcat'
-elif command -v bat >/dev/null 2>&1; then
-    alias cat='bat'
-fi
-
-# Cross-platform fd alias  
-if command -v fdfind >/dev/null 2>&1; then
-    alias find='fdfind'
-    alias fd='fdfind'
-elif command -v fd >/dev/null 2>&1; then
-    alias find='fd'
-fi
+alias cat='batcat'
+alias bat='batcat'
+alias find='fdfind'
+alias fd='fdfind'
 
 # ========================================
 # CARGO PATH (for Rust tools like eza)
@@ -243,6 +229,11 @@ export PATH="$HOME/.cargo/bin:$PATH"
 # ZOXIDE (smarter cd)
 # ========================================
 eval "$(zoxide init zsh)"
+
+# ========================================
+# FOREX TRADER PROJECT PYTHON PATH
+# ========================================
+export PYTHONPATH="$HOME/repos/forex_trader:$PYTHONPATH"
 
 # ========================================
 # TMUX AUTO-START
