@@ -255,27 +255,6 @@ alias ..='cd ..'
 alias ...='cd ../..'
 alias ....='cd ../../..'
 
-# SSH helper - auto-detach from tmux when SSH'ing
-# Use regular 'ssh' and it will handle tmux automatically
-ssh() {
-    if [ -n "$TMUX" ]; then
-        # Save the SSH command for after detach
-        echo "command ssh $@" > ~/.last_ssh_cmd
-        echo "Detaching from tmux to SSH to avoid nesting issues..."
-        tmux detach-client
-    else
-        # Not in tmux, run SSH normally
-        command ssh "$@"
-    fi
-}
-
-# After detaching from tmux, check if there's a pending SSH command
-if [ -f ~/.last_ssh_cmd ] && [ -z "$TMUX" ]; then
-    ssh_cmd=$(cat ~/.last_ssh_cmd)
-    rm ~/.last_ssh_cmd
-    echo "Executing: $ssh_cmd"
-    eval $ssh_cmd
-fi
 
 # Detect OS and set appropriate aliases
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -417,26 +396,5 @@ fi
 # ========================================
 export PYTHONPATH="$HOME/repos/forex_trader:$PYTHONPATH"
 
-# ========================================
-# TMUX AUTO-START
-# ========================================
-
-# Auto-start tmux session with hostname in the name
-# Only in "primary" terminal sessions (not IDE integrated terminals or nested shells)
-if command -v tmux >/dev/null 2>&1 && [ -z "$TMUX" ] && [ -n "$PS1" ] && [ "$SHLVL" -eq 1 ]; then
-    # Get hostname (works on both macOS and Linux)
-    # Use short hostname (without domain)
-    HOST_NAME=$(hostname -s 2>/dev/null || hostname | cut -d. -f1)
-    SESSION_NAME="main-${HOST_NAME}"
-    
-    # Check if session exists
-    if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
-        # Session exists, attach to it
-        tmux attach-session -t "$SESSION_NAME"
-    else
-        # Session doesn't exist, create and attach
-        tmux new-session -s "$SESSION_NAME"
-    fi
-fi
 
 
