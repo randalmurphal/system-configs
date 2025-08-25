@@ -275,18 +275,7 @@ alias vi='nvim'
 # TMUX AUTO-START
 # ========================================
 
-# Auto-start tmux session "main" on interactive shell startup
-# Only in "primary" terminal sessions (not IDE integrated terminals or nested shells)
-if command -v tmux >/dev/null 2>&1 && [ -z "$TMUX" ] && [ -n "$PS1" ] && [ "$SHLVL" -eq 1 ]; then
-    # Check if session "main" exists
-    if tmux has-session -t main 2>/dev/null; then
-        # Session exists, attach to it
-        exec tmux attach-session -t main
-    else
-        # Session doesn't exist, create and attach
-        exec tmux new-session -s main
-    fi
-fi
+# Tmux auto-start disabled - manually start with 'tmux' command when needed
 
 # ═══════════════════════════════════════════════════════════════════════════════
 #           🔮 MODERN TOOL REPLACEMENTS - LEVEL UP YOUR CLI GAME! 🔮
