@@ -4,6 +4,13 @@
 # Path to your Oh My Zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
 
+# Fix Homebrew completions on macOS
+if [[ "$OSTYPE" == "darwin"* ]] && type brew &>/dev/null; then
+    FPATH="$(brew --prefix)/share/zsh/site-functions:${FPATH}"
+    # Remove problematic completions
+    rm -f /usr/local/share/zsh/site-functions/_brew_cask 2>/dev/null
+fi
+
 # Set name of the theme to load --- if set to "random", it will
 # load a random theme each time Oh My Zsh is loaded, in which case,
 # to know which specific one was loaded, run: echo $RANDOM_THEME
@@ -70,17 +77,47 @@ ZSH_THEME=""  # Empty to use custom prompt
 # Custom plugins may be added to $ZSH_CUSTOM/plugins/
 # Example format: plugins=(rails git textmate ruby lighthouse)
 # Add wisely, as too many plugins slow down shell startup.
-plugins=(
-  python
-  pip
-  docker
-  tmux
-  fzf
-  zsh-autosuggestions
-  zsh-syntax-highlighting
-)
+# Dynamically build plugins list based on what's available
+plugins=()
+
+# Always include these if they exist
+[ -d "$ZSH/plugins/python" ] && plugins+=(python)
+[ -d "$ZSH/plugins/pip" ] && plugins+=(pip)
+[ -d "$ZSH/plugins/docker" ] && plugins+=(docker)
+[ -d "$ZSH/plugins/tmux" ] && plugins+=(tmux)
+[ -d "$ZSH/plugins/fzf" ] && plugins+=(fzf)
+[ -d "$ZSH/plugins/git" ] && plugins+=(git)
+
+# Check for custom plugins
+if [ -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ] || [ -d "$ZSH/custom/plugins/zsh-autosuggestions" ]; then
+    plugins+=(zsh-autosuggestions)
+elif [ -f "/opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ]; then
+    # Source brew-installed version
+    source /opt/homebrew/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+elif [ -f "/usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh" ]; then
+    source /usr/local/share/zsh-autosuggestions/zsh-autosuggestions.zsh
+fi
+
+if [ -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ] || [ -d "$ZSH/custom/plugins/zsh-syntax-highlighting" ]; then
+    plugins+=(zsh-syntax-highlighting)
+elif [ -f "/opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]; then
+    # Source brew-installed version (must be at end of .zshrc)
+    # Will source this after oh-my-zsh
+    ZSH_HIGHLIGHT_BREW=true
+elif [ -f "/usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]; then
+    ZSH_HIGHLIGHT_BREW=true
+fi
 
 source $ZSH/oh-my-zsh.sh
+
+# Source brew-installed zsh-syntax-highlighting if needed (must be after oh-my-zsh)
+if [ "$ZSH_HIGHLIGHT_BREW" = true ]; then
+    if [ -f "/opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]; then
+        source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+    elif [ -f "/usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" ]; then
+        source /usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+    fi
+fi
 
 # ========================================
 # CUSTOM PROMPT CONFIGURATION
@@ -140,7 +177,9 @@ PROMPT='$(virtualenv_info)[%F{green}%n%f:%F{blue}$(hostname)%f]:%F{8}$(git_branc
 # ========================================
 
 # Python Virtual Environment
-source /opt/envs/py3.13/bin/activate
+if [ -f "VENV_PATH_PLACEHOLDER/bin/activate" ]; then
+    source "VENV_PATH_PLACEHOLDER/bin/activate"
+fi
 
 # Custom Functions
 extract() {
@@ -182,12 +221,18 @@ export RUFF_CONFIG="$REPOS_PATH/system-configs/ruff.toml"
 alias cdsc="cd $REPOS_PATH/system-configs"
 alias cdnv="cd ~/.config/nvim"
 
-# Smart nvim function - prefer snap version, fallback to system
+# Smart nvim function - cross-platform
 nvim() {
     if [ -x "/snap/bin/nvim" ]; then
         /snap/bin/nvim "$@"
     elif [ -x "/usr/bin/nvim" ]; then
         /usr/bin/nvim "$@"
+    elif [ -x "/usr/local/bin/nvim" ]; then
+        /usr/local/bin/nvim "$@"
+    elif [ -x "/opt/homebrew/bin/nvim" ]; then
+        /opt/homebrew/bin/nvim "$@"
+    elif command -v nvim &> /dev/null; then
+        command nvim "$@"
     else
         echo "nvim not found"
         return 1
@@ -208,37 +253,146 @@ alias gd='git diff'
 # Directory navigation shortcuts
 alias ..='cd ..'
 alias ...='cd ../..'
-alias ls='eza -la --git'
+alias ....='cd ../../..'
 
-# Modern CLI aliases
-alias ll='eza -la --git'
-alias la='eza -la --git'
-alias lt='eza -la --tree --git'
-alias tree='eza --tree'
-alias cat='batcat'
-alias bat='batcat'
-alias find='fdfind'
-alias fd='fdfind'
+
+# Detect OS and set appropriate aliases
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS specific aliases
+
+    # Use eza if available, otherwise fall back to ls
+    if command -v eza &> /dev/null; then
+        alias ls='eza -la --git'
+        alias ll='eza -la --git'
+        alias la='eza -la --git'
+        alias lt='eza -la --tree --git'
+        alias tree='eza --tree'
+    else
+        alias ls='ls -laG'  # G for color on macOS
+        alias ll='ls -laG'
+        alias la='ls -laG'
+        alias lt='ls -laGR'  # Recursive for tree-like
+        # tree might be installed via brew
+        if ! command -v tree &> /dev/null; then
+            alias tree='find . -print | sed -e "s;[^/]*/;|____;g;s;____|; |;g"'
+        fi
+    fi
+
+    # Use bat if available
+    if command -v bat &> /dev/null; then
+        alias cat='bat'
+    fi
+
+    # fd is installed as 'fd' on macOS via brew
+    if command -v fd &> /dev/null; then
+        alias find='fd'
+    fi
+
+    # ripgrep is 'rg' on macOS
+    if command -v rg &> /dev/null; then
+        alias grep='rg'
+    fi
+
+    # htop alternative on macOS
+    if ! command -v htop &> /dev/null; then
+        alias htop='top'
+    fi
+
+    # Disk usage tools - gdu is fastest, ncdu is interactive, fallback to du
+    if command -v gdu &> /dev/null; then
+        alias du='gdu'
+        alias ncdu='gdu'  # Use gdu in place of ncdu if available
+    elif command -v ncdu &> /dev/null; then
+        alias du='ncdu'
+    fi
+
+    # tldr for simplified man pages
+    if ! command -v tldr &> /dev/null; then
+        alias tldr='echo "tldr not installed. Install with: brew install tldr"'
+    fi
+else
+    # Linux specific aliases
+
+    # Use eza if available
+    if command -v eza &> /dev/null; then
+        alias ls='eza -la --git'
+        alias ll='eza -la --git'
+        alias la='eza -la --git'
+        alias lt='eza -la --tree --git'
+        alias tree='eza --tree'
+    else
+        alias ls='ls -la --color=auto'
+        alias ll='ls -la --color=auto'
+        alias la='ls -la --color=auto'
+        alias lt='ls -laR --color=auto'
+    fi
+
+    # Different names for tools on Linux
+    if command -v batcat &> /dev/null; then
+        alias cat='batcat'
+        alias bat='batcat'
+    elif command -v bat &> /dev/null; then
+        alias cat='bat'
+    fi
+
+    if command -v fdfind &> /dev/null; then
+        alias find='fdfind'
+        alias fd='fdfind'
+    elif command -v fd &> /dev/null; then
+        alias find='fd'
+    fi
+
+    # ripgrep
+    if command -v rg &> /dev/null; then
+        alias grep='rg'
+    fi
+
+    # Disk usage tools for Linux
+    if command -v gdu &> /dev/null; then
+        alias du='gdu'
+        alias ncdu='gdu'
+    elif command -v ncdu &> /dev/null; then
+        alias du='ncdu'
+    fi
+
+    # htop check for Linux
+    if ! command -v htop &> /dev/null && command -v top &> /dev/null; then
+        alias htop='top'
+    fi
+
+    # tldr for simplified man pages
+    if ! command -v tldr &> /dev/null; then
+        alias tldr='echo "tldr not installed. Install with: sudo apt install tldr (or your package manager)"'
+    fi
+fi
 
 # ========================================
-# CARGO PATH (for Rust tools like eza)
+# PATH additions
 # ========================================
-export PATH="$HOME/.cargo/bin:$PATH"
+# Cargo/Rust tools
+if [ -d "$HOME/.cargo/bin" ]; then
+    export PATH="$HOME/.cargo/bin:$PATH"
+fi
+
+# Homebrew on Apple Silicon Macs
+if [ -d "/opt/homebrew/bin" ]; then
+    export PATH="/opt/homebrew/bin:$PATH"
+fi
+
+# Homebrew on Intel Macs
+if [ -d "/usr/local/bin" ]; then
+    export PATH="/usr/local/bin:$PATH"
+fi
 
 # ========================================
-# ZOXIDE (smarter cd)
+# ZOXIDE (smarter cd) - only if installed
 # ========================================
-eval "$(zoxide init zsh)"
+if command -v zoxide &> /dev/null; then
+    eval "$(zoxide init zsh)"
+fi
 
 # ========================================
 # FOREX TRADER PROJECT PYTHON PATH
 # ========================================
 export PYTHONPATH="$HOME/repos/forex_trader:$PYTHONPATH"
-
-# ========================================
-# TMUX AUTO-START
-# ========================================
-
-# Tmux auto-start disabled - manually start with 'tmux' command when needed
-
 

@@ -211,6 +211,63 @@ get_python_venv() {
     fi
 }
 
+# Fix Homebrew completions for macOS
+fix_brew_completions() {
+    if [ "$OS_TYPE" != "macos" ]; then
+        return 0
+    fi
+    
+    print_info "Fixing Homebrew completions..."
+    
+    # Remove broken symlinks
+    if [ -L "/usr/local/share/zsh/site-functions/_brew_cask" ]; then
+        print_info "Removing broken _brew_cask symlink..."
+        rm -f /usr/local/share/zsh/site-functions/_brew_cask 2>/dev/null || 
+            sudo rm -f /usr/local/share/zsh/site-functions/_brew_cask 2>/dev/null || 
+            print_warning "Could not remove broken symlink"
+    fi
+    
+    # Fix brew completion symlink if broken
+    if [ -L "/usr/local/share/zsh/site-functions/_brew" ] && [ ! -e "/usr/local/share/zsh/site-functions/_brew" ]; then
+        print_info "Fixing broken _brew symlink..."
+        rm -f /usr/local/share/zsh/site-functions/_brew 2>/dev/null || 
+            sudo rm -f /usr/local/share/zsh/site-functions/_brew 2>/dev/null
+    fi
+    
+    # Ensure brew completions are properly linked
+    if command -v brew &> /dev/null; then
+        BREW_PREFIX=$(brew --prefix)
+        if [ -f "$BREW_PREFIX/share/zsh/site-functions/_brew" ]; then
+            print_info "Brew completions found at $BREW_PREFIX"
+            # Create directory if it doesn't exist
+            if [ ! -d "/usr/local/share/zsh/site-functions" ]; then
+                sudo mkdir -p /usr/local/share/zsh/site-functions 2>/dev/null || true
+            fi
+            # Link if not already linked
+            if [ ! -e "/usr/local/share/zsh/site-functions/_brew" ]; then
+                ln -sf "$BREW_PREFIX/share/zsh/site-functions/_brew" /usr/local/share/zsh/site-functions/_brew 2>/dev/null || 
+                    sudo ln -sf "$BREW_PREFIX/share/zsh/site-functions/_brew" /usr/local/share/zsh/site-functions/_brew 2>/dev/null || true
+            fi
+        fi
+    fi
+    
+    # Add to fpath in zshrc if needed
+    if [ -f "$HOME/.zshrc" ] && ! grep -q "fpath.*site-functions" "$HOME/.zshrc"; then
+        print_info "Adding Homebrew completions to fpath in .zshrc..."
+        # Add before compinit
+        sed -i.bak '/^source \$ZSH\/oh-my-zsh.sh/i\
+# Fix Homebrew completions\
+if type brew &>/dev/null; then\
+    FPATH="$(brew --prefix)/share/zsh/site-functions:${FPATH}"\
+    autoload -Uz compinit\
+    compinit\
+fi\
+' "$HOME/.zshrc" 2>/dev/null || true
+    fi
+    
+    print_success "Homebrew completions fixed"
+}
+
 # Install system packages
 install_system_packages() {
     print_header "INSTALLING SYSTEM PACKAGES"
@@ -229,14 +286,16 @@ install_system_packages() {
     case $PKG_MANAGER in
         "brew")
             base_packages="git curl wget tmux neovim python3 cmake unzip"
-            modern_tools="bat fd ripgrep htop tree fzf ranger"
+            modern_tools="bat fd ripgrep htop tree fzf ranger eza zoxide gdu ncdu tldr"
             if [ "$INSTALL_ZSH" = true ]; then
                 base_packages="$base_packages zsh"
             fi
+            # Note: cask-fonts is now part of homebrew/cask
             ;;
         "apt")
             base_packages="git curl wget tmux neovim python3 python3-pip build-essential cmake unzip"
-            modern_tools="bat fd-find ripgrep htop tree fzf ranger"
+            modern_tools="bat fd-find ripgrep htop tree fzf ranger ncdu tldr"
+            # Note: eza and zoxide may need manual installation on some Linux distros
             if [ "$INSTALL_ZSH" = true ]; then
                 base_packages="$base_packages zsh"
             fi
@@ -276,6 +335,22 @@ install_system_packages() {
         $PKG_INSTALL $modern_tools || print_warning "Some modern tools may not be available"
     else
         sudo $PKG_INSTALL $modern_tools || print_warning "Some modern tools may not be available in your repos"
+        
+        # Try to install eza on Linux if not in default repos
+        if ! command -v eza &> /dev/null; then
+            print_info "Attempting to install eza via cargo..."
+            if command -v cargo &> /dev/null; then
+                cargo install eza || print_warning "Failed to install eza"
+            else
+                print_info "Install Rust/Cargo to get eza: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
+            fi
+        fi
+        
+        # Try to install zoxide on Linux if not in default repos
+        if ! command -v zoxide &> /dev/null; then
+            print_info "Attempting to install zoxide..."
+            curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash 2>/dev/null || print_warning "Failed to install zoxide"
+        fi
     fi
     
     # Install pip3 on macOS if not present
@@ -401,8 +476,8 @@ install_oh_my_zsh() {
     
     if [ -d "$HOME/.oh-my-zsh" ]; then
         print_success "Oh My Zsh already installed"
-        return 0
-    fi
+        # Don't return - still need to install plugins
+    else
     
     print_info "Installing Oh My Zsh..."
     
@@ -422,19 +497,36 @@ install_oh_my_zsh() {
         return 1
     fi
     
-    print_success "Oh My Zsh installed successfully"
-    
-    # Install popular plugins
-    print_info "Installing Oh My Zsh plugins..."
-    
-    # Install zsh-autosuggestions
-    if [ ! -d "$HOME/.oh-my-zsh/custom/plugins/zsh-autosuggestions" ]; then
-        git clone https://github.com/zsh-users/zsh-autosuggestions ~/.oh-my-zsh/custom/plugins/zsh-autosuggestions || print_warning "Failed to install zsh-autosuggestions"
+        print_success "Oh My Zsh installed successfully"
     fi
     
-    # Install zsh-syntax-highlighting
-    if [ ! -d "$HOME/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting" ]; then
-        git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ~/.oh-my-zsh/custom/plugins/zsh-syntax-highlighting || print_warning "Failed to install zsh-syntax-highlighting"
+    # Install popular plugins - ALWAYS run this section
+    print_info "Installing Oh My Zsh plugins..."
+    
+    # For macOS, we'll install via both methods for maximum compatibility
+    if [ "$OS_TYPE" = "macos" ]; then
+        # Install via Homebrew first (system-wide)
+        print_info "Installing zsh plugins via Homebrew..."
+        brew install zsh-autosuggestions zsh-syntax-highlighting 2>/dev/null || print_warning "Some plugins may already be installed"
+    fi
+    
+    # Install zsh-autosuggestions to Oh My Zsh custom directory
+    ZSH_CUSTOM="$HOME/.oh-my-zsh/custom"
+    if [ ! -d "$ZSH_CUSTOM/plugins/zsh-autosuggestions" ]; then
+        print_info "Installing zsh-autosuggestions to Oh My Zsh..."
+        git clone https://github.com/zsh-users/zsh-autosuggestions "$ZSH_CUSTOM/plugins/zsh-autosuggestions" || 
+            print_warning "Failed to install zsh-autosuggestions to Oh My Zsh"
+    else
+        print_success "zsh-autosuggestions already in Oh My Zsh"
+    fi
+    
+    # Install zsh-syntax-highlighting to Oh My Zsh custom directory
+    if [ ! -d "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" ]; then
+        print_info "Installing zsh-syntax-highlighting to Oh My Zsh..."
+        git clone https://github.com/zsh-users/zsh-syntax-highlighting.git "$ZSH_CUSTOM/plugins/zsh-syntax-highlighting" || 
+            print_warning "Failed to install zsh-syntax-highlighting to Oh My Zsh"
+    else
+        print_success "zsh-syntax-highlighting already in Oh My Zsh"
     fi
     
     print_success "Oh My Zsh plugins installed"
@@ -447,6 +539,38 @@ setup_shell_config() {
         SHELL_CONFIG_FILE="$HOME/.zshrc"
         CONFIG_NAME="zshrc"
         CONFIG_TEMPLATE="$REPOS_PATH/system-configs/zsh_configs/.zshrc"
+        
+        # Check for .zsh_profile (not a standard Zsh file - might cause confusion)
+        if [ "$OS_TYPE" = "macos" ] && [ -f "$HOME/.zsh_profile" ]; then
+            print_warning "Found .zsh_profile (non-standard file - Zsh uses .zshrc for interactive shells)"
+            echo "This file is NOT normally used by Zsh. It may have been created by mistake."
+            echo "Standard Zsh files are: .zshrc (interactive) and .zprofile (login)"
+            echo ""
+            echo "Would you like to:"
+            echo "1. Merge its contents into .zshrc and remove it (recommended)"
+            echo "2. Keep it as is"
+            echo "3. Back it up and remove it"
+            read -p "Choice (1/2/3): " profile_choice
+            
+            case "$profile_choice" in
+                "1")
+                    print_info "Merging .zsh_profile contents into .zshrc..."
+                    echo "" >> "$HOME/.zshrc"
+                    echo "# === Merged from .zsh_profile ===" >> "$HOME/.zshrc"
+                    cat "$HOME/.zsh_profile" >> "$HOME/.zshrc"
+                    echo "# === End merged content ===" >> "$HOME/.zshrc"
+                    mv "$HOME/.zsh_profile" "$HOME/.zsh_profile.backup-$(date +%Y%m%d-%H%M%S)"
+                    print_success "Merged and backed up .zsh_profile"
+                    ;;
+                "3")
+                    mv "$HOME/.zsh_profile" "$HOME/.zsh_profile.backup-$(date +%Y%m%d-%H%M%S)"
+                    print_info "Moved .zsh_profile to backup"
+                    ;;
+                *)
+                    print_info "Keeping .zsh_profile as is"
+                    ;;
+            esac
+        fi
     else
         # Bash configuration - determine based on OS
         if [ "$OS_TYPE" = "macos" ]; then
@@ -737,28 +861,35 @@ install_nerd_font() {
     
     if [ "$OS_TYPE" = "macos" ]; then
         # Check if Hack Nerd Font is already installed via Homebrew
-        if brew list --cask font-hack-nerd-font &> /dev/null; then
+        if brew list --cask font-hack-nerd-font &> /dev/null 2>&1; then
             print_success "Hack Nerd Font already installed"
         else
             print_info "Installing Hack Nerd Font via Homebrew..."
-            # The fonts are now in the main homebrew/cask repository
-            if brew install --cask font-hack-nerd-font; then
+            # Try with the new cask name format
+            if brew install --cask font-hack-nerd-font 2>/dev/null; then
                 print_success "Hack Nerd Font installed"
                 print_info "You may need to change your terminal font to 'Hack Nerd Font'"
             else
-                print_warning "Failed to install via Homebrew, trying manual installation..."
-                # Fallback to manual installation
-                font_dir="$HOME/Library/Fonts"
-                mkdir -p "$font_dir"
-                cd /tmp
-                if curl -L -o Hack.zip "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/Hack.zip"; then
-                    unzip -q Hack.zip -d hack-font
-                    cp hack-font/*.ttf "$font_dir/"
-                    rm -rf hack-font Hack.zip
-                    print_success "Hack Nerd Font installed manually"
+                # Try alternative cask name
+                print_info "Trying alternative font package name..."
+                if brew install --cask font-hack-nerd-font 2>/dev/null || brew install font-hack-nerd-font 2>/dev/null; then
+                    print_success "Hack Nerd Font installed"
                     print_info "You may need to change your terminal font to 'Hack Nerd Font'"
                 else
-                    print_warning "Failed to install Hack Nerd Font"
+                    print_warning "Failed to install via Homebrew, trying manual installation..."
+                    # Fallback to manual installation
+                    font_dir="$HOME/Library/Fonts"
+                    mkdir -p "$font_dir"
+                    cd /tmp
+                    if curl -L -o Hack.zip "https://github.com/ryanoasis/nerd-fonts/releases/download/v3.0.2/Hack.zip"; then
+                        unzip -q Hack.zip -d hack-font
+                        cp hack-font/*.ttf "$font_dir/"
+                        rm -rf hack-font Hack.zip
+                        print_success "Hack Nerd Font installed manually"
+                        print_info "You may need to change your terminal font to 'Hack Nerd Font'"
+                    else
+                        print_warning "Failed to install Hack Nerd Font"
+                    fi
                 fi
             fi
         fi
@@ -900,6 +1031,7 @@ EOF
     clone_system_configs
     setup_git
     install_oh_my_zsh
+    fix_brew_completions
     setup_shell_config
     setup_tmux
     setup_neovim
