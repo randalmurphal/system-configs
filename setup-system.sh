@@ -157,14 +157,25 @@ get_repos_path() {
 # Get Python virtual environment path and create if needed
 get_python_venv() {
     print_header "CONFIGURE PYTHON VIRTUAL ENVIRONMENT"
-    echo -e "Where would you like to store your Python virtual environment?"
+    echo -e "Would you like to set up a Python virtual environment?"
     echo -e "This will be automatically activated in your shell."
-    echo -e "Default: ${GREEN}/opt/envs/py3${NC}"
+    echo -e "You can skip this if you prefer to manage venvs per-project."
+    echo
+    read -p "Set up global venv? (y/n): " setup_venv
+
+    if [ "$setup_venv" != "y" ] && [ "$setup_venv" != "Y" ]; then
+        print_info "Skipping virtual environment setup"
+        VENV_PATH=""
+        return 0
+    fi
+
+    echo -e "Where would you like to store your Python virtual environment?"
+    echo -e "Default: ${GREEN}$HOME/.venv${NC}"
     echo
     read -p "Enter path (or press Enter for default): " user_venv_path
-    
+
     if [ -z "$user_venv_path" ]; then
-        VENV_PATH="/opt/envs/py3"
+        VENV_PATH="$HOME/.venv"
     else
         VENV_PATH="$user_venv_path"
     fi
@@ -181,16 +192,11 @@ get_python_venv() {
             print_info "Creating virtual environment..."
             
             # Ensure parent directory exists
-            sudo mkdir -p "$(dirname "$VENV_PATH")"
-            
+            mkdir -p "$(dirname "$VENV_PATH")"
+
             # Create the virtual environment
             if python3 -m venv "$VENV_PATH"; then
                 print_success "Virtual environment created at: $VENV_PATH"
-                
-                # Make it accessible to the user
-                if [ "$OS_TYPE" != "macos" ]; then
-                    sudo chown -R "$USER:$USER" "$VENV_PATH"
-                fi
                 
                 # Activate and install some basic packages
                 print_info "Installing basic Python packages..."
@@ -286,37 +292,36 @@ install_system_packages() {
     case $PKG_MANAGER in
         "brew")
             base_packages="git curl wget tmux neovim python3 cmake unzip"
-            modern_tools="bat fd ripgrep htop tree fzf ranger eza zoxide gdu ncdu tldr"
+            modern_tools="bat ripgrep htop tree fzf ranger zoxide gdu ncdu tldr lazygit btop"
             if [ "$INSTALL_ZSH" = true ]; then
                 base_packages="$base_packages zsh"
             fi
-            # Note: cask-fonts is now part of homebrew/cask
             ;;
         "apt")
             base_packages="git curl wget tmux neovim python3 python3-pip build-essential cmake unzip"
-            modern_tools="bat fd-find ripgrep htop tree fzf ranger ncdu tldr"
-            # Note: eza and zoxide may need manual installation on some Linux distros
+            modern_tools="bat ripgrep htop tree fzf ranger ncdu tldr"
+            # Note: zoxide, lazygit, btop may need manual installation on some distros
             if [ "$INSTALL_ZSH" = true ]; then
                 base_packages="$base_packages zsh"
             fi
             ;;
         "yum"|"dnf")
             base_packages="git curl wget tmux neovim python3 python3-pip gcc gcc-c++ make cmake unzip"
-            modern_tools="bat fd-find ripgrep htop tree fzf ranger"
+            modern_tools="bat ripgrep htop tree fzf ranger tldr"
             if [ "$INSTALL_ZSH" = true ]; then
                 base_packages="$base_packages zsh"
             fi
             ;;
         "pacman")
             base_packages="git curl wget tmux neovim python python-pip base-devel cmake unzip"
-            modern_tools="bat fd ripgrep htop tree fzf ranger"
+            modern_tools="bat ripgrep htop tree fzf ranger lazygit btop"
             if [ "$INSTALL_ZSH" = true ]; then
                 base_packages="$base_packages zsh"
             fi
             ;;
         "zypper")
             base_packages="git curl wget tmux neovim python3 python3-pip gcc gcc-c++ make cmake unzip"
-            modern_tools="bat fd ripgrep htop tree fzf ranger"
+            modern_tools="bat ripgrep htop tree fzf ranger lazygit btop tldr"
             if [ "$INSTALL_ZSH" = true ]; then
                 base_packages="$base_packages zsh"
             fi
@@ -335,16 +340,6 @@ install_system_packages() {
         $PKG_INSTALL $modern_tools || print_warning "Some modern tools may not be available"
     else
         sudo $PKG_INSTALL $modern_tools || print_warning "Some modern tools may not be available in your repos"
-        
-        # Try to install eza on Linux if not in default repos
-        if ! command -v eza &> /dev/null; then
-            print_info "Attempting to install eza via cargo..."
-            if command -v cargo &> /dev/null; then
-                cargo install eza || print_warning "Failed to install eza"
-            else
-                print_info "Install Rust/Cargo to get eza: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh"
-            fi
-        fi
         
         # Try to install zoxide on Linux if not in default repos
         if ! command -v zoxide &> /dev/null; then
