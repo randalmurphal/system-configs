@@ -55,7 +55,7 @@ fi
 git_branch() {
   local branch=$(git symbolic-ref --short HEAD 2>/dev/null)
   if [[ -n "$branch" ]]; then
-    echo "$branch"
+    echo "%F{244}$branch%f"
   fi
 }
 
