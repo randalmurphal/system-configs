@@ -53,7 +53,7 @@ fi
 # CUSTOM PROMPT
 # ========================================
 git_branch() {
-  local branch=$(git branch 2>/dev/null | grep '^*' | colrm 1 2)
+  local branch=$(git symbolic-ref --short HEAD 2>/dev/null)
   if [[ -n "$branch" ]]; then
     echo "$branch"
   fi
