@@ -314,8 +314,8 @@ config.key_tables = {
     -- Page/document movement
     { key = 'g', mods = 'NONE', action = act.CopyMode 'MoveToScrollbackTop' },
     { key = 'G', mods = 'SHIFT', action = act.CopyMode 'MoveToScrollbackBottom' },
-    { key = 'u', mods = 'CTRL', action = act.CopyMode 'PageUp' },
-    { key = 'd', mods = 'CTRL', action = act.CopyMode 'PageDown' },
+    { key = 'u', mods = 'CTRL|SHIFT', action = act.CopyMode 'PageUp' },
+    { key = 'd', mods = 'CTRL|SHIFT', action = act.CopyMode 'PageDown' },
 
     -- Selection
     { key = 'v', mods = 'NONE', action = act.CopyMode { SetSelectionMode = 'Cell' } },
