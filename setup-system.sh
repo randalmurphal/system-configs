@@ -343,7 +343,7 @@ install_system_packages() {
             fi
             ;;
         "apt")
-            base_packages="git curl wget tmux neovim python3 python3-pip build-essential cmake unzip"
+            base_packages="git curl wget tmux python3 python3-pip build-essential cmake unzip"
             modern_tools="bat ripgrep htop tree fzf ranger ncdu tldr"
             # Note: zoxide, lazygit, btop may need manual installation on some distros
             if [ "$INSTALL_ZSH" = true ]; then
@@ -390,6 +390,16 @@ install_system_packages() {
         if ! command -v zoxide &> /dev/null; then
             print_info "Attempting to install zoxide..."
             curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash 2>/dev/null || print_warning "Failed to install zoxide"
+        fi
+
+        # Install neovim via snap on apt-based systems (apt repos have outdated versions)
+        if [ "$PKG_MANAGER" = "apt" ]; then
+            print_info "Installing neovim via snap (apt version is outdated)..."
+            if command -v snap &> /dev/null; then
+                sudo snap install nvim --classic && print_success "Neovim installed via snap" || print_warning "Failed to install neovim via snap"
+            else
+                print_warning "snap not available - install snapd first, then run: sudo snap install nvim --classic"
+            fi
         fi
     fi
     

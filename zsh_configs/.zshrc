@@ -178,6 +178,7 @@ extract() {
 [ -d "$HOME/.cargo/bin" ] && export PATH="$HOME/.cargo/bin:$PATH"
 [ -d "/opt/homebrew/bin" ] && export PATH="/opt/homebrew/bin:$PATH"
 [ -d "/usr/local/bin" ] && export PATH="/usr/local/bin:$PATH"
+[ -d "/snap/bin" ] && export PATH="/snap/bin:$PATH"
 
 # ========================================
 # ZOXIDE (smarter cd)
