@@ -1,0 +1,430 @@
+#!/bin/bash
+# Plasma 6 Panel Configuration Helper
+# Helps with common panel operations like copying configs between monitors
+
+CONFIG_FILE="$HOME/.config/plasma-org.kde.plasma.desktop-appletsrc"
+KSCREEN_OUTPUTS="$HOME/.local/share/kscreen/outputs"
+
+usage() {
+    cat << EOF
+Usage: $(basename "$0") <command> [options]
+
+Commands:
+    list                List all monitors and their panels
+    show <monitor>      Show panel config for a monitor (by name, position, or screen#)
+    copy <from> <to>    Copy top panel config from one monitor to another
+    restart             Safely restart plasmashell
+    backup              Backup current panel config
+    restore <file>      Restore panel config from backup
+
+Monitor identifiers (use any of these):
+    - Brand name: "LG", "ASUS", "HP"
+    - Position: "left", "center", "right"
+    - Screen number: "0", "1", "2"
+    - Output name: "DP-0", "DP-4", "HDMI-0"
+
+Examples:
+    $(basename "$0") list
+    $(basename "$0") show HP
+    $(basename "$0") copy HP LG
+    $(basename "$0") copy right left
+    $(basename "$0") restart
+EOF
+}
+
+# Get monitor info from kscreen outputs
+get_monitors() {
+    local monitors=()
+    for f in "$KSCREEN_OUTPUTS"/*; do
+        [ -f "$f" ] || continue
+        local fullname=$(grep -o '"fullname": "[^"]*"' "$f" 2>/dev/null | cut -d'"' -f4)
+        local output=$(grep -o '"name": "[^"]*"' "$f" 2>/dev/null | tail -1 | cut -d'"' -f4)
+        [ -n "$fullname" ] && [ -n "$output" ] && [ "$output" != "None-1" ] && echo "$output|$fullname"
+    done
+}
+
+# Get geometry for an output (returns "X,Y WxH")
+get_geometry() {
+    local output="$1"
+    kscreen-doctor -o 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' | grep -A20 "Output:.*$output " | grep "Geometry:" | head -1 | sed 's/.*Geometry: //' | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//'
+}
+
+# Determine position (left/center/right) from geometry
+get_position() {
+    local geom="$1"
+    # Extract X from "X,Y WxH"
+    local x=$(echo "$geom" | cut -d',' -f1)
+
+    # Get all X positions for connected monitors
+    local positions=$(for out in DP-0 DP-4 HDMI-0; do
+        local g=$(get_geometry "$out")
+        [ -n "$g" ] && [ "$g" != "0,0 0x0" ] && echo "$(echo "$g" | cut -d',' -f1)|$out"
+    done | sort -t'|' -k1 -n)
+
+    local count=$(echo "$positions" | grep -c .)
+    local pos=1
+    while IFS='|' read -r px pout; do
+        if [ "$x" = "$px" ]; then
+            if [ $pos -eq 1 ]; then echo "left"
+            elif [ $pos -eq $count ]; then echo "right"
+            else echo "center"
+            fi
+            return
+        fi
+        ((pos++))
+    done <<< "$positions"
+    echo "unknown"
+}
+
+# Get screen index from output name
+get_screen_index() {
+    local output="$1"
+    # Sort outputs by X position, assign screen index
+    local idx=0
+    for out in $(for o in DP-0 DP-4 HDMI-0; do
+        local g=$(get_geometry "$o")
+        [ -n "$g" ] && [ "$g" != "0,0 0x0" ] && echo "$(echo "$g" | cut -d',' -f1)|$o"
+    done | sort -t'|' -k1 -n | cut -d'|' -f2); do
+        if [ "$out" = "$output" ]; then
+            echo $idx
+            return
+        fi
+        ((idx++))
+    done
+    echo "-1"
+}
+
+# Resolve monitor identifier to output name
+resolve_monitor() {
+    local id="$1"
+    id_lower=$(echo "$id" | tr '[:upper:]' '[:lower:]')
+
+    # Check if it's already an output name
+    if [[ "$id" =~ ^(DP|HDMI)-[0-9]+$ ]]; then
+        echo "$id"
+        return
+    fi
+
+    # Check if it's a screen number
+    if [[ "$id" =~ ^[0-9]+$ ]]; then
+        for out in DP-0 DP-4 HDMI-0; do
+            if [ "$(get_screen_index "$out")" = "$id" ]; then
+                echo "$out"
+                return
+            fi
+        done
+    fi
+
+    # Check position names
+    case "$id_lower" in
+        left|center|right)
+            for out in DP-0 DP-4 HDMI-0; do
+                local geom=$(get_geometry "$out")
+                [ -z "$geom" ] && continue
+                local pos=$(get_position "$geom")
+                if [ "$pos" = "$id_lower" ]; then
+                    echo "$out"
+                    return
+                fi
+            done
+            ;;
+    esac
+
+    # Check brand names in fullname
+    while IFS='|' read -r out fullname; do
+        if echo "$fullname" | grep -qi "$id"; then
+            echo "$out"
+            return
+        fi
+    done < <(get_monitors)
+
+    echo ""
+}
+
+# Get panel ID for a screen
+get_panel_id() {
+    local screen="$1"
+    local location="${2:-3}"  # 3=top, 4=bottom
+
+    # Find containment sections that have both lastScreen and location matching
+    awk -v screen="$screen" -v loc="$location" '
+        /^\[Containments\]\[[0-9]+\]$/ {
+            section = $0
+            gsub(/[^0-9]/, "", section)
+            current_id = section
+            has_screen = 0
+            has_location = 0
+            is_panel = 0
+        }
+        /^lastScreen=/ { if ($0 == "lastScreen=" screen) has_screen = 1 }
+        /^location=/ { if ($0 == "location=" loc) has_location = 1 }
+        /^plugin=org.kde.panel$/ { is_panel = 1 }
+        /^\[/ && current_id && has_screen && has_location && is_panel {
+            print current_id
+            exit
+        }
+    ' "$CONFIG_FILE"
+}
+
+list_monitors() {
+    echo "Monitors:"
+    echo "========="
+    printf "%-10s %-8s %-20s %-12s %s\n" "Output" "Screen" "Brand/Model" "Position" "Resolution"
+    printf "%-10s %-8s %-20s %-12s %s\n" "------" "------" "-----------" "--------" "----------"
+
+    while IFS='|' read -r out fullname; do
+        local geom=$(get_geometry "$out")
+        [ -z "$geom" ] && continue
+        local screen=$(get_screen_index "$out")
+        local pos=$(get_position "$geom")
+        # Parse resolution from geometry like "0,0 2560x1440"
+        local res=$(echo "$geom" | awk '{print $2}')
+        local brand=$(echo "$fullname" | sed 's/xrandr-//' | cut -d'-' -f1)
+        local model=$(echo "$fullname" | sed 's/xrandr-//' | cut -d'-' -f2)
+        printf "%-10s %-8s %-20s %-12s %s\n" "$out" "$screen" "$brand $model" "$pos" "$res"
+    done < <(get_monitors)
+
+    echo ""
+    echo "Panels:"
+    echo "======="
+    printf "%-10s %-8s %-10s %s\n" "Panel ID" "Screen" "Position" "Widgets"
+    printf "%-10s %-8s %-10s %s\n" "--------" "------" "--------" "-------"
+
+    for screen in 0 1 2; do
+        for loc in 3 4; do
+            local panel_id=$(get_panel_id "$screen" "$loc")
+            [ -z "$panel_id" ] && continue
+            local loc_name="top"
+            [ "$loc" = "4" ] && loc_name="bottom"
+
+            local widgets=$(grep "^\[Containments\]\[$panel_id\]\[Applets\]\[[0-9]*\]$" "$CONFIG_FILE" | wc -l)
+            printf "%-10s %-8s %-10s %s widgets\n" "$panel_id" "$screen" "$loc_name" "$widgets"
+        done
+    done
+}
+
+show_panel() {
+    local monitor="$1"
+    local output=$(resolve_monitor "$monitor")
+
+    if [ -z "$output" ]; then
+        echo "Error: Could not resolve monitor '$monitor'"
+        echo "Use 'list' to see available monitors"
+        exit 1
+    fi
+
+    local screen=$(get_screen_index "$output")
+    local panel_id=$(get_panel_id "$screen" 3)  # Top panel
+
+    echo "Monitor: $output (Screen $screen)"
+    echo "Top Panel ID: $panel_id"
+    echo ""
+    echo "Widgets:"
+    grep -E "^\[Containments\]\[$panel_id\]\[Applets\]\[[0-9]+\]$" "$CONFIG_FILE" | while read -r section; do
+        local widget_id=$(echo "$section" | grep -oE '\[Applets\]\[[0-9]+\]' | grep -oE '[0-9]+')
+        # Need to escape the brackets for grep
+        local escaped_section=$(echo "$section" | sed 's/\[/\\[/g' | sed 's/\]/\\]/g')
+        local plugin=$(grep -A5 "^$escaped_section$" "$CONFIG_FILE" | grep "^plugin=" | head -1 | cut -d= -f2)
+        echo "  $widget_id: $plugin"
+    done
+
+    echo ""
+    echo "AppletOrder: $(grep -A1 "^\[Containments\]\[$panel_id\]\[General\]$" "$CONFIG_FILE" | grep AppletOrder= | cut -d= -f2)"
+}
+
+copy_panel() {
+    local from_mon="$1"
+    local to_mon="$2"
+    local apply="${3:-}"
+
+    local from_output=$(resolve_monitor "$from_mon")
+    local to_output=$(resolve_monitor "$to_mon")
+
+    if [ -z "$from_output" ]; then
+        echo "Error: Could not resolve source monitor '$from_mon'"
+        exit 1
+    fi
+
+    if [ -z "$to_output" ]; then
+        echo "Error: Could not resolve target monitor '$to_mon'"
+        exit 1
+    fi
+
+    local from_screen=$(get_screen_index "$from_output")
+    local to_screen=$(get_screen_index "$to_output")
+    local from_panel=$(get_panel_id "$from_screen" 3)
+    local to_panel=$(get_panel_id "$to_screen" 3)
+
+    echo "Copying top panel config:"
+    echo "  From: $from_output (Screen $from_screen, Panel $from_panel)"
+    echo "  To:   $to_output (Screen $to_screen, Panel $to_panel)"
+    echo ""
+
+    # Extract widget configs from source panel
+    echo "Source widgets and settings:"
+
+    # Get all widget sections for source panel
+    local from_widgets=$(grep "^\[Containments\]\[$from_panel\]\[Applets\]\[[0-9]*\]" "$CONFIG_FILE" | \
+        grep -oE '\[Applets\]\[[0-9]+\]' | grep -oE '[0-9]+' | sort -u)
+
+    local to_widgets=$(grep "^\[Containments\]\[$to_panel\]\[Applets\]\[[0-9]*\]" "$CONFIG_FILE" | \
+        grep -oE '\[Applets\]\[[0-9]+\]' | grep -oE '[0-9]+' | sort -u)
+
+    # Map widgets by plugin type
+    for from_wid in $from_widgets; do
+        local plugin=$(grep -A3 "^\[Containments\]\[$from_panel\]\[Applets\]\[$from_wid\]$" "$CONFIG_FILE" | \
+            grep "plugin=" | head -1 | cut -d= -f2)
+
+        # Skip system tray (too complex)
+        [ "$plugin" = "org.kde.plasma.systemtray" ] && continue
+
+        # Find matching widget in target
+        for to_wid in $to_widgets; do
+            local to_plugin=$(grep -A3 "^\[Containments\]\[$to_panel\]\[Applets\]\[$to_wid\]$" "$CONFIG_FILE" | \
+                grep "plugin=" | head -1 | cut -d= -f2)
+
+            if [ "$plugin" = "$to_plugin" ]; then
+                echo "  $plugin: Widget $from_wid -> $to_wid"
+
+                # Extract appearance config
+                local from_section="\[Containments\]\[$from_panel\]\[Applets\]\[$from_wid\]\[Configuration\]\[Appearance\]"
+                local to_section="\[Containments\]\[$to_panel\]\[Applets\]\[$to_wid\]\[Configuration\]\[Appearance\]"
+
+                # Show what would be copied
+                grep -A20 "^$from_section$" "$CONFIG_FILE" 2>/dev/null | sed -n '2,/^\[/p' | head -n -1 | \
+                    while read -r line; do
+                        [ -n "$line" ] && echo "    $line"
+                    done
+                break
+            fi
+        done
+    done
+
+    if [ "$apply" = "--apply" ]; then
+        echo ""
+        echo "Applying changes..."
+        backup_config
+
+        # Stop plasmashell
+        echo "Stopping plasmashell..."
+        pkill plasmashell
+        sleep 2
+
+        # Copy digitalclock appearance config
+        local from_clock=$(grep "^\[Containments\]\[$from_panel\]\[Applets\]\[[0-9]*\]$" "$CONFIG_FILE" | while read -r section; do
+            local wid=$(echo "$section" | grep -oE '[0-9]+$')
+            local escaped=$(echo "$section" | sed 's/\[/\\[/g' | sed 's/\]/\\]/g')
+            local plugin=$(grep -A5 "^$escaped$" "$CONFIG_FILE" | grep "^plugin=" | head -1 | cut -d= -f2)
+            [ "$plugin" = "org.kde.plasma.digitalclock" ] && echo "$wid" && break
+        done)
+
+        local to_clock=$(grep "^\[Containments\]\[$to_panel\]\[Applets\]\[[0-9]*\]$" "$CONFIG_FILE" | while read -r section; do
+            local wid=$(echo "$section" | grep -oE '[0-9]+$')
+            local escaped=$(echo "$section" | sed 's/\[/\\[/g' | sed 's/\]/\\]/g')
+            local plugin=$(grep -A5 "^$escaped$" "$CONFIG_FILE" | grep "^plugin=" | head -1 | cut -d= -f2)
+            [ "$plugin" = "org.kde.plasma.digitalclock" ] && echo "$wid" && break
+        done)
+
+        if [ -n "$from_clock" ] && [ -n "$to_clock" ]; then
+            echo "Copying clock config: Widget $from_clock -> $to_clock"
+
+            # Extract settings from source
+            local from_section="\[Containments\]\[$from_panel\]\[Applets\]\[$from_clock\]\[Configuration\]\[Appearance\]"
+            local to_section="\[Containments\]\[$to_panel\]\[Applets\]\[$to_clock\]\[Configuration\]\[Appearance\]"
+
+            # Get each setting and apply it
+            grep -A30 "^$from_section$" "$CONFIG_FILE" | sed -n '2,/^\[/p' | head -n -1 | while read -r line; do
+                [ -z "$line" ] && continue
+                local key=$(echo "$line" | cut -d= -f1)
+                local value=$(echo "$line" | cut -d= -f2-)
+
+                # Use sed to update or add the setting in target section
+                local to_escaped=$(echo "$to_section" | sed 's/\\/\\\\/g')
+                if grep -q "^$to_escaped$" "$CONFIG_FILE"; then
+                    # Check if key exists in target section
+                    if grep -A30 "^$to_escaped$" "$CONFIG_FILE" | sed -n '2,/^\[/p' | grep -q "^$key="; then
+                        # Update existing key
+                        sed -i "/^$to_escaped$/,/^\[/ s/^$key=.*/$key=$value/" "$CONFIG_FILE"
+                    else
+                        # Add new key after section header
+                        sed -i "/^$to_escaped$/a $key=$value" "$CONFIG_FILE"
+                    fi
+                fi
+                echo "  Set $key=$value"
+            done
+        fi
+
+        echo ""
+        echo "Starting plasmashell..."
+        plasmashell 2>/dev/null &
+        echo "Done!"
+    else
+        echo ""
+        echo "To apply changes, run:"
+        echo "  $(basename "$0") copy $from_mon $to_mon --apply"
+    fi
+}
+
+restart_plasmashell() {
+    echo "Stopping plasmashell..."
+    pkill plasmashell
+    sleep 2
+    echo "Starting plasmashell..."
+    plasmashell 2>/dev/null &
+    echo "Done."
+}
+
+backup_config() {
+    local backup_file="$HOME/.config/plasma-appletsrc-backup-$(date +%Y%m%d-%H%M%S)"
+    cp "$CONFIG_FILE" "$backup_file"
+    echo "Backed up to: $backup_file"
+}
+
+restore_config() {
+    local backup_file="$1"
+    if [ ! -f "$backup_file" ]; then
+        echo "Error: Backup file not found: $backup_file"
+        exit 1
+    fi
+
+    echo "Stopping plasmashell..."
+    pkill plasmashell
+    sleep 2
+
+    cp "$backup_file" "$CONFIG_FILE"
+    echo "Restored from: $backup_file"
+
+    echo "Starting plasmashell..."
+    plasmashell 2>/dev/null &
+    echo "Done."
+}
+
+# Main
+case "${1:-}" in
+    list)
+        list_monitors
+        ;;
+    show)
+        show_panel "$2"
+        ;;
+    copy)
+        copy_panel "$2" "$3" "$4"
+        ;;
+    restart)
+        restart_plasmashell
+        ;;
+    backup)
+        backup_config
+        ;;
+    restore)
+        restore_config "$2"
+        ;;
+    -h|--help|"")
+        usage
+        ;;
+    *)
+        echo "Unknown command: $1"
+        usage
+        exit 1
+        ;;
+esac

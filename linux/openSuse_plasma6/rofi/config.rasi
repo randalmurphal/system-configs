@@ -1,0 +1,42 @@
+configuration {
+    modes: "combi";
+    font: "Noto Sans 12";
+    show-icons: true;
+    icon-theme: "breeze";
+    terminal: "ghostty";
+
+    /* Show on monitor with focused window */
+    m: "-4";
+
+    /* Matching */
+    matching: "fuzzy";
+    sort: true;
+    sorting-method: "fzf";
+
+    /* Combine apps and files in one search */
+    combi-modes: "drun,filebrowser";
+    combi-display-format: "{text}";
+
+    /* Display - magnifying glass icon */
+    display-combi: "🔍";
+
+    drun-display-format: "{name}";
+
+    /* Behavior */
+    steal-focus: true;
+    click-to-exit: true;
+
+    /* Alt+Space closes rofi */
+    kb-cancel: "Escape,Alt+space";
+
+    timeout {
+        action: "kb-cancel";
+        delay: 0;
+    }
+    filebrowser {
+        directories-first: true;
+        sorting-method: "name";
+    }
+}
+
+@theme "~/.config/rofi/theme.rasi"

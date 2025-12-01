@@ -1,0 +1,31 @@
+[2]
+Description=KDE System Dialogs - Always Focus
+fsplevel=0
+fsplevelrule=3
+wmclass=ksmserver|ksplashqml|plasmashell|polkit
+wmclassmatch=2
+
+[4]
+Description=Chrome - Always Focus
+fsplevel=0
+fsplevelrule=3
+wmclass=google-chrome
+wmclassmatch=1
+
+[5]
+Description=Firefox - Always Focus
+fsplevel=0
+fsplevelrule=3
+wmclass=firefox
+wmclassmatch=1
+
+[6]
+Description=Rofi - Blur
+wmclass=rofi
+wmclassmatch=1
+blur=true
+blurrule=3
+
+[General]
+count=4
+rules=2,4,5,6

@@ -217,6 +217,51 @@ get_python_venv() {
     fi
 }
 
+# Select optional components
+select_components() {
+    print_header "SELECT COMPONENTS TO INSTALL"
+    echo -e "Choose which components you want to install."
+    echo -e "Enter 'y' for yes, 'n' for no, or press Enter for default (yes).\n"
+
+    # System packages
+    read -p "Install system packages (git, tmux, neovim, modern CLI tools)? [Y/n]: " choice
+    INSTALL_SYSTEM_PACKAGES=${choice:-y}
+    INSTALL_SYSTEM_PACKAGES=$(echo "$INSTALL_SYSTEM_PACKAGES" | tr '[:upper:]' '[:lower:]')
+
+    # SSH key
+    read -p "Setup SSH key? [Y/n]: " choice
+    SETUP_SSH=${choice:-y}
+    SETUP_SSH=$(echo "$SETUP_SSH" | tr '[:upper:]' '[:lower:]')
+
+    # Git config
+    read -p "Configure Git? [Y/n]: " choice
+    SETUP_GIT=${choice:-y}
+    SETUP_GIT=$(echo "$SETUP_GIT" | tr '[:upper:]' '[:lower:]')
+
+    # Shell configuration (bash/zsh)
+    read -p "Setup shell configuration ($CHOSEN_SHELL)? [Y/n]: " choice
+    SETUP_SHELL=${choice:-y}
+    SETUP_SHELL=$(echo "$SETUP_SHELL" | tr '[:upper:]' '[:lower:]')
+
+    # Tmux
+    read -p "Setup tmux configuration? [Y/n]: " choice
+    SETUP_TMUX=${choice:-y}
+    SETUP_TMUX=$(echo "$SETUP_TMUX" | tr '[:upper:]' '[:lower:]')
+
+    # Neovim
+    read -p "Setup Neovim configuration? [Y/n]: " choice
+    SETUP_NEOVIM=${choice:-y}
+    SETUP_NEOVIM=$(echo "$SETUP_NEOVIM" | tr '[:upper:]' '[:lower:]')
+
+    # Nerd Font
+    read -p "Install Hack Nerd Font? [Y/n]: " choice
+    INSTALL_FONT=${choice:-y}
+    INSTALL_FONT=$(echo "$INSTALL_FONT" | tr '[:upper:]' '[:lower:]')
+
+    echo
+    print_success "Component selection complete"
+}
+
 # Fix Homebrew completions for macOS
 fix_brew_completions() {
     if [ "$OS_TYPE" != "macos" ]; then
@@ -751,36 +796,81 @@ setup_tmux() {
 # Setup neovim
 setup_neovim() {
     print_header "CONFIGURING NEOVIM"
-    
+
+    # Default nvim config repo - can be overridden
+    NVIM_CONFIG_REPO="${NVIM_CONFIG_REPO:-git@github.com:randalmurphal/neovim-config.git}"
+
     # Ensure nvim config directory exists
-    mkdir -p "$HOME/.config/nvim"
-    
-    # Check if user wants to use Randy's nvim config or keep existing
-    if [ -f "$HOME/.config/nvim/init.lua" ] || [ -f "$HOME/.config/nvim/init.vim" ]; then
-        print_warning "Existing Neovim configuration found"
-        echo "Current nvim config will be backed up if replaced. What would you like to do?"
-        echo "1. Keep existing configuration (recommended)"
-        echo "2. Replace with Randy's configuration"
-        read -p "Choice (1 or 2): " nvim_choice
-        
-        if [ "$nvim_choice" = "2" ]; then
-            # Create backup
-            backup_dir="$HOME/.config/nvim.backup-$(date +%Y%m%d-%H%M%S)"
-            cp -r "$HOME/.config/nvim" "$backup_dir"
-            print_info "Backup created: $backup_dir"
-            
-            print_info "You'll need to manually copy Randy's nvim configuration"
-            echo -e "Randy's nvim config is typically in a separate repository."
-            echo -e "Contact Randy for access to the nvim configuration repository."
+    mkdir -p "$HOME/.config"
+
+    # Check if user wants to install nvim config
+    if [ -d "$HOME/.config/nvim" ]; then
+        # Check if it's already a git repo
+        if [ -d "$HOME/.config/nvim/.git" ]; then
+            print_success "Neovim configuration already installed as git repo"
+            echo "Would you like to pull the latest changes? (y/n)"
+            read -r pull_choice
+            if [ "$pull_choice" = "y" ] || [ "$pull_choice" = "Y" ]; then
+                cd "$HOME/.config/nvim"
+                git pull origin main || git pull origin master || print_warning "Failed to pull latest changes"
+                cd -
+                print_success "Neovim config updated"
+            fi
         else
-            print_success "Keeping existing Neovim configuration"
+            print_warning "Existing Neovim configuration found (not a git repo)"
+            echo "Current nvim config will be backed up if replaced. What would you like to do?"
+            echo "1. Keep existing configuration"
+            echo "2. Replace with Randy's configuration (from git repo)"
+            read -p "Choice (1 or 2): " nvim_choice
+
+            if [ "$nvim_choice" = "2" ]; then
+                # Create backup
+                backup_dir="$HOME/.config/nvim.backup-$(date +%Y%m%d-%H%M%S)"
+                mv "$HOME/.config/nvim" "$backup_dir"
+                print_info "Backup created: $backup_dir"
+
+                # Clone nvim config
+                print_info "Cloning nvim configuration from: $NVIM_CONFIG_REPO"
+                if git clone "$NVIM_CONFIG_REPO" "$HOME/.config/nvim"; then
+                    print_success "Neovim configuration installed"
+                else
+                    print_error "Failed to clone nvim config repo"
+                    print_info "You can manually clone it later:"
+                    echo -e "  git clone $NVIM_CONFIG_REPO ~/.config/nvim"
+                    # Restore backup
+                    mv "$backup_dir" "$HOME/.config/nvim"
+                    print_info "Restored original config from backup"
+                fi
+            else
+                print_success "Keeping existing Neovim configuration"
+            fi
         fi
     else
         print_info "No existing Neovim configuration found"
-        echo -e "You'll need Randy's nvim configuration repository for the full setup."
-        echo -e "Contact Randy for access to the nvim configuration repository."
+        echo "Would you like to install Randy's nvim configuration? (y/n)"
+        read -r install_nvim
+        if [ "$install_nvim" = "y" ] || [ "$install_nvim" = "Y" ]; then
+            echo "Enter nvim config repo URL (or press Enter for default):"
+            echo -e "Default: ${GREEN}$NVIM_CONFIG_REPO${NC}"
+            read -r custom_repo
+            if [ -n "$custom_repo" ]; then
+                NVIM_CONFIG_REPO="$custom_repo"
+            fi
+
+            print_info "Cloning nvim configuration from: $NVIM_CONFIG_REPO"
+            if git clone "$NVIM_CONFIG_REPO" "$HOME/.config/nvim"; then
+                print_success "Neovim configuration installed"
+                print_info "On first nvim launch, plugins will auto-install via lazy.nvim"
+            else
+                print_error "Failed to clone nvim config repo"
+                print_info "You can manually clone it later:"
+                echo -e "  git clone $NVIM_CONFIG_REPO ~/.config/nvim"
+            fi
+        else
+            print_info "Skipping Neovim configuration"
+        fi
     fi
-    
+
     # Install Python packages needed for development
     if [ -n "$VENV_PATH" ] && [ -f "$VENV_PATH/bin/activate" ]; then
         print_info "Installing Python development packages in virtual environment..."
@@ -1020,18 +1110,63 @@ EOF
     choose_shell
     get_repos_path
     get_python_venv
+    select_components
     backup_configs
-    install_system_packages
-    setup_ssh_key
+
+    # Conditional component installation
+    if [ "$INSTALL_SYSTEM_PACKAGES" = "y" ]; then
+        install_system_packages
+    else
+        print_info "Skipping system packages installation"
+    fi
+
+    if [ "$SETUP_SSH" = "y" ]; then
+        setup_ssh_key
+    else
+        print_info "Skipping SSH key setup"
+    fi
+
     clone_system_configs
-    setup_git
-    install_oh_my_zsh
-    fix_brew_completions
-    setup_shell_config
-    setup_tmux
-    setup_neovim
-    change_default_shell
-    install_nerd_font
+
+    if [ "$SETUP_GIT" = "y" ]; then
+        setup_git
+    else
+        print_info "Skipping Git configuration"
+    fi
+
+    if [ "$CHOSEN_SHELL" = "zsh" ] && [ "$SETUP_SHELL" = "y" ]; then
+        install_oh_my_zsh
+        fix_brew_completions
+    fi
+
+    if [ "$SETUP_SHELL" = "y" ]; then
+        setup_shell_config
+    else
+        print_info "Skipping shell configuration"
+    fi
+
+    if [ "$SETUP_TMUX" = "y" ]; then
+        setup_tmux
+    else
+        print_info "Skipping tmux configuration"
+    fi
+
+    if [ "$SETUP_NEOVIM" = "y" ]; then
+        setup_neovim
+    else
+        print_info "Skipping Neovim configuration"
+    fi
+
+    if [ "$CHOSEN_SHELL" = "zsh" ] && [ "$SETUP_SHELL" = "y" ]; then
+        change_default_shell
+    fi
+
+    if [ "$INSTALL_FONT" = "y" ]; then
+        install_nerd_font
+    else
+        print_info "Skipping Nerd Font installation"
+    fi
+
     show_final_instructions
 }
 

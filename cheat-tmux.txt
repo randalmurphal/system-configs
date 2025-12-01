@@ -1,65 +1,51 @@
-[32m═════════════════════════════════════════════════════════════[0m
-[32m              🎮 TMUX KEYBINDINGS REFERENCE 🎮[0m
-[32m           🚀 Master Your Terminal Multiplexer 🚀[0m
-[32m═════════════════════════════════════════════════════════════[0m
+[38;5;135m════════════════════════════════════════════════════════════════[0m
+[38;5;135m                    TMUX QUICK REFERENCE[0m
+[38;5;135m════════════════════════════════════════════════════════════════[0m
 
-[33m💡 Prefix Key: [32mCtrl+Space[0m (use before each command below)[0m
+[38;5;245mPrefix: [38;5;135mCtrl+Space[0m
 
-[36m┌─ 📋 CHEAT SHEET POPUPS ───────────────────────────────────┐[0m
- [32m<prefix> + Q[0m               - [35mShow tmux cheat sheet[0m
- [32m<prefix> + W[0m               - [35mShow nvim cheat sheet[0m
- [32m<prefix> + E[0m               - [35mShow bash cheat sheet[0m
- [32m<prefix> + A[0m               - [35mSmart session manager[0m
-[36m└───────────────────────────────────────────────────────────┘[0m
+[38;5;135m─── SPLITS & WINDOWS ───────────────────────────────────────────[0m
+[38;5;255mv[0m           horizontal split (current dir)
+[38;5;255mV[0m           vertical split (current dir)
+[38;5;255mn[0m           new window
+[38;5;255mh / l[0m       prev / next window
+[38;5;255m1-9[0m         jump to window
 
-[36m┌─ 🪟 WINDOW MANAGEMENT ────────────────────────────────────┐[0m
- [32m<prefix> + n[0m               - [35mCreate new window[0m
- [32m<prefix> + X[0m               - [35mKill current session (confirm)[0m
- [32m<prefix> + h[0m               - [35mPrevious window[0m
- [32m<prefix> + l[0m               - [35mNext window[0m
- [32m<prefix> + 1-9[0m             - [35mSwitch to window 1-9[0m
- [32m<prefix> + \![0m              - [35mCreate new session[0m
- [32m<prefix> + S[0m               - [35mChoose session[0m
- [32m<prefix> + s[0m               - [35mSplit window horizontally[0m
- [32m<prefix> + v[0m               - [35mSplit window vertically[0m
-[36m└───────────────────────────────────────────────────────────┘[0m
+[38;5;135m─── PANE NAVIGATION ────────────────────────────────────────────[0m
+[38;5;255mAlt+h/j/k/l[0m navigate panes (no prefix needed)
+[38;5;255mH/J/K/L[0m     resize pane (5 units)
+[38;5;255ma[0m           break pane to window
+[38;5;255mb / B[0m       join window as pane (h/v)
 
-[36m┌─ 🧩 PANE MANAGEMENT ──────────────────────────────────────┐[0m
- [32mAlt + h/j/k/l[0m              - [35mNavigate panes (vim-aware)[0m
- [32mAlt + arrows[0m               - [35mNavigate panes (arrows)[0m
- [32m<prefix> + H/J/K/L[0m         - [35mResize panes (5 units)[0m
- [32m<prefix> + a[0m               - [35mBreak pane to new window[0m
- [32m<prefix> + b[0m               - [35mJoin window as pane (horiz)[0m
- [32m<prefix> + B[0m               - [35mJoin window as pane (vert)[0m
- [32mOption + h/j/k/l[0m           - [35mNavigate panes (macOS)[0m
-[36m└───────────────────────────────────────────────────────────┘[0m
+[38;5;135m─── SESSIONS ───────────────────────────────────────────────────[0m
+[38;5;255mS[0m           choose session
+[38;5;255m![0m           new session
+[38;5;255mX[0m           kill session (confirm)
+[38;5;255ms[0m           save session (resurrect)
+[38;5;255mA[0m           smart session manager
 
-[36m┌─ 📁 FILE OPERATIONS ──────────────────────────────────────┐[0m
- [32m<prefix> + f[0m               - [35mFzf search from home (~)[0m
- [32m<prefix> + /[0m               - [35mFzf search from current dir[0m
- [32m<prefix> + F[0m               - [35mFzf directory search[0m
- [32m<prefix> + e[0m               - [35mOpen ranger file manager[0m
-[36m└───────────────────────────────────────────────────────────┘[0m
+[38;5;135m─── FILE & GIT ─────────────────────────────────────────────────[0m
+[38;5;255mf[0m           fzf from home -> nvim
+[38;5;255m/[0m           nvim in current dir
+[38;5;255mF[0m           fzf directories
+[38;5;255me[0m           ranger
+[38;5;255mg[0m           lazygit
 
-[36m┌─ ⚙️  CONFIGURATION & COPY MODE ───────────────────────────┐[0m
- [32m<prefix> + r[0m               - [35mReload tmux config[0m
- [32m<prefix> + k[0m               - [35mEnter copy mode[0m
- [32mCtrl + L[0m                   - [35mClear screen (vim-aware)[0m
- [32mEsc + Esc[0m                  - [35mExit terminal mode[0m
-[36m└───────────────────────────────────────────────────────────┘[0m
+[38;5;135m─── COPY MODE ──────────────────────────────────────────────────[0m
+[38;5;255mk[0m           enter copy mode
+[38;5;245min copy mode:[0m
+[38;5;255m  v[0m         begin selection
+[38;5;255m  y[0m         copy to clipboard
+[38;5;255m  r[0m         rectangle toggle
+[38;5;255m  Esc/q[0m     exit copy mode
 
-[36m┌─ 📋 COPY MODE (Vi Keys) ──────────────────────────────────┐[0m
- [32mv[0m                          - [35mBegin selection[0m
- [32my[0m                          - [35mCopy to clipboard[0m
- [32mr[0m                          - [35mRectangle toggle[0m
- [32mh/j/k/l[0m                    - [35mMove cursor[0m
- [32mEsc[0m                        - [35mExit copy mode[0m
-[36m└───────────────────────────────────────────────────────────┘[0m
+[38;5;135m─── CHEAT SHEETS ───────────────────────────────────────────────[0m
+[38;5;255mQ[0m           tmux cheat sheet
+[38;5;255mW[0m           nvim cheat sheet
+[38;5;255mE[0m           bash cheat sheet
 
-[33m💡 Pro Tips:[0m
-[33m•[0m Mouse support is enabled - click to select panes and scroll
-[33m•[0m Vim-tmux-navigator is active - seamless navigation between vim splits and tmux panes
-[33m•[0m Plugins: resurrect, continuum, CPU/RAM monitoring, yank, open, copycat
-[33m•[0m Auto-saves session every 15 minutes and restores on startup
+[38;5;135m─── OTHER ──────────────────────────────────────────────────────[0m
+[38;5;255mr[0m           reload config
 
-[32m🚀 Master your tmux workflow\! 🚀[0m
+[38;5;245mMouse enabled. Click panes, scroll, drag to copy.[0m
+[38;5;245mSessions auto-restore on start. Manual save with prefix+s.[0m

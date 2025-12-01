@@ -1,0 +1,98 @@
+/* macOS Spotlight inspired theme */
+* {
+    bg: #20202099;
+    bg-input: #30303099;
+    bg-selected: #0a84ff;
+    fg: #ffffff;
+    fg-alt: #888888;
+    border-color: #ffffff55;
+
+    background-color: transparent;
+    text-color: @fg;
+    margin: 0;
+    padding: 0;
+    spacing: 0;
+}
+
+window {
+    transparency: "real";
+    background-color: @bg;
+    border: 1.5px;
+    border-color: @border-color;
+    border-radius: 24px;
+    width: 500px;
+    location: north;
+    anchor: north;
+    y-offset: 25%;
+}
+
+mainbox {
+    padding: 0;
+}
+
+inputbar {
+    background-color: transparent;
+    border-radius: 24px 24px 0 0;
+    padding: 10px 16px;
+    spacing: 8px;
+    children: [prompt, entry];
+}
+
+prompt {
+    font: "Noto Sans 14";
+    text-color: @fg-alt;
+    vertical-align: 0.5;
+}
+
+entry {
+    font: "Noto Sans 14";
+    placeholder: "Search";
+    placeholder-color: @fg-alt;
+    vertical-align: 0.5;
+}
+
+listview {
+    lines: 5;
+    columns: 1;
+    fixed-height: false;
+    padding: 4px 0;
+    spacing: 0;
+    require-input: true;
+}
+
+element {
+    padding: 8px 16px;
+    spacing: 10px;
+}
+
+element normal normal {
+    background-color: transparent;
+}
+
+element selected normal {
+    background-color: @bg-selected;
+    border-radius: 20px;
+    margin: 0 8px;
+}
+
+element-icon {
+    size: 24px;
+    vertical-align: 0.5;
+}
+
+element-text {
+    font: "Noto Sans 12";
+    vertical-align: 0.5;
+}
+
+message {
+    padding: 8px 16px;
+}
+
+textbox {
+    text-color: @fg-alt;
+}
+
+mode-switcher {
+    enabled: false;
+}

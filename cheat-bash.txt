@@ -1,73 +1,53 @@
-[32m═════════════════════════════════════════════════════════════════[0m
-[32m              💻 BASH ALIASES & SHORTCUTS 💻[0m
-[32m            🚀 Master Your Terminal Commands 🚀[0m
-[32m═════════════════════════════════════════════════════════════════[0m
+[38;5;135m════════════════════════════════════════════════════════════════[0m
+[38;5;135m                   BASH/ZSH QUICK REFERENCE[0m
+[38;5;135m════════════════════════════════════════════════════════════════[0m
 
-[36m┌─ 📋 CHEAT SHEET NAVIGATION ───────────────────────────────────┐[0m
- [32mkeys[0m                       - [35mShow full cheat sheet popup[0m
- [32mCtrl+Space + Q[0m             - [35mShow tmux cheat sheet[0m
- [32mCtrl+Space + W[0m             - [35mShow nvim cheat sheet[0m
- [32mCtrl+Space + E[0m             - [35mShow bash cheat sheet[0m
-[36m└───────────────────────────────────────────────────────────────┘[0m
+[38;5;135m─── NAVIGATION ─────────────────────────────────────────────────[0m
+[38;5;255mcdsc[0m            system-configs repo
+[38;5;255mcdnv[0m            nvim config
+[38;5;255m.. / ...[0m        up one / two dirs
+[38;5;255mmkcd [dir][0m      mkdir + cd into it
+[38;5;255mz [path][0m        zoxide smart jump
+[38;5;255mzi[0m              zoxide interactive
 
-[36m┌─ 📁 DIRECTORY NAVIGATION ─────────────────────────────────────┐[0m
- [32mcdsc[0m                       - [35mGo to system-configs repo[0m
- [32mcdnv[0m                       - [35mGo to nvim config repo[0m
- [32m..[0m                         - [35mGo up one directory[0m
- [32m...[0m                        - [35mGo up two directories[0m
- [32mmkcd [dir][0m                 - [35mMake directory and cd into it[0m
- [32mls[0m                         - [35mList all files with colors[0m
-[36m└───────────────────────────────────────────────────────────────┘[0m
+[38;5;135m─── MODERN TOOLS ───────────────────────────────────────────────[0m
+[38;5;255mls / ll / la[0m    eza with git status
+[38;5;255mlt[0m              eza tree view
+[38;5;255mbat [file][0m      cat with syntax highlighting
+[38;5;255mfd [pattern][0m    fast file finder
+[38;5;255mrg [pattern][0m    ripgrep (fast grep)
+[38;5;255mfzf[0m             fuzzy finder
+[38;5;255mhtop / btop[0m     process viewers
+[38;5;255mranger[0m          file manager
+[38;5;255mlazygit[0m         git TUI
 
-[36m┌─ 🔧 GIT SHORTCUTS ────────────────────────────────────────────┐[0m
- [32mgs[0m                         - [35mGit status[0m
- [32mga[0m                         - [35mGit add[0m
- [32mgc[0m                         - [35mGit commit[0m
- [32mgp[0m                         - [35mGit push[0m
- [32mgl[0m                         - [35mGit log (oneline)[0m
- [32mgd[0m                         - [35mGit diff[0m
-[36m└───────────────────────────────────────────────────────────────┘[0m
+[38;5;135m─── GIT SHORTCUTS ──────────────────────────────────────────────[0m
+[38;5;255mgs[0m              git status
+[38;5;255mga[0m              git add
+[38;5;255mgc[0m              git commit
+[38;5;255mgp[0m              git push
+[38;5;255mgl[0m              git log --oneline
+[38;5;255mgd[0m              git diff
 
-[36m┌─ 🌐 SYSTEM & UTILITIES ───────────────────────────────────────┐[0m
- [32mserve[0m                      - [35mStart HTTP server (port 8000)[0m
- [32mextract [file][0m             - [35mExtract any archive format[0m
- [32mkillp [name][0m               - [35mFind and kill process by name[0m
- [32mreload[0m                     - [35mReload shell configuration[0m
- [32mpath[0m                       - [35mShow PATH variable (one per line)[0m
- [32mports[0m                      - [35mShow open ports[0m
-[36m└───────────────────────────────────────────────────────────────┘[0m
+[38;5;135m─── UTILITIES ──────────────────────────────────────────────────[0m
+[38;5;255mserve[0m           http server on :8000
+[38;5;255mextract [file][0m  extract any archive
+[38;5;255mkillp [name][0m    find & kill process
+[38;5;255mreload[0m          reload shell config
+[38;5;255mpath[0m            show PATH (one per line)
+[38;5;255mports[0m           show open ports
 
-[36m┌─ 🔍 MODERN CLI TOOLS ─────────────────────────────────────────┐[0m
- [32mbat [file][0m                 - [35mSyntax highlighting cat[0m
- [32mfd [pattern][0m               - [35mFast file finder[0m
- [32mrg [pattern][0m               - [35mRipgrep (fast grep)[0m
- [32mhtop[0m                       - [35mInteractive process viewer[0m
- [32mtree[0m                       - [35mDirectory tree view[0m
- [32mfzf[0m                        - [35mFuzzy file finder[0m
- [32mranger[0m                     - [35mFile manager[0m
- [32mruff[0m                       - [35mPython linter/formatter[0m
- [32mls/ll/la[0m                   - [35mEza with git integration[0m
- [32mlt[0m                         - [35mEza tree view[0m
- [32mz [dir][0m                    - [35mZoxide (smart cd)[0m
- [32mzi[0m                         - [35mZoxide interactive[0m
- [32mgh[0m                         - [35mGitHub CLI[0m
- [32mlazygit[0m                    - [35mGit TUI interface[0m
-[36m└──────────────────────────────────────────────────────────────┘[0m
+[38;5;135m─── PYTHON ─────────────────────────────────────────────────────[0m
+[38;5;255mpython -m venv venv[0m         create venv
+[38;5;255msource venv/bin/activate[0m    activate venv
+[38;5;255mpip install -e .[0m           editable install
+[38;5;255mruff check .[0m               lint python
+[38;5;255mruff format .[0m              format python
 
-[36m┌─ ⚡ PYTHON DEVELOPMENT ──────────────────────────────────────┐[0m
- [32mpip install -e .[0m                - [35mInstall package in dev mode[0m
- [32mipython[0m                         - [35mEnhanced Python REPL[0m
- [32mpython -m http.server[0m           - [35mStart Python web server[0m
- [32mpython -m venv venv[0m             - [35mCreate virtual environment[0m
- [32msource venv/bin/activate[0m        - [35mActivate virtual environment[0m
- [32mpip freeze > requirements.txt[0m   - [35mExport dependencies[0m
- [32mpip install -r requirements.txt[0m - [35mInstall from requirements[0m
-[36m└──────────────────────────────────────────────────────────────┘[0m
+[38;5;135m─── CHEAT SHEETS (in tmux) ─────────────────────────────────────[0m
+[38;5;255mCtrl+Space Q[0m    tmux cheat
+[38;5;255mCtrl+Space W[0m    nvim cheat
+[38;5;255mCtrl+Space E[0m    bash cheat
 
-[33m💡 Pro Tips:[0m
-[33m•[0m Most aliases support tab completion
-[33m•[0m Use [32mwhich [command][0m to see what an alias actually runs
-[33m•[0m Virtual environment is auto-activated in this shell
-[33m•[0m Use [32mhistory[0m to see recent commands, [32m\!\![0m to repeat last command
-
-[32m🚀 Master your command line workflow\! 🚀[0m
+[38;5;245mVenv auto-activates if VENV_PATH is set.[0m
+[38;5;245mRUFF_CONFIG points to your ruff.toml.[0m
