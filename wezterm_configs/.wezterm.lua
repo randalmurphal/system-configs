@@ -385,10 +385,38 @@ config.visual_bell = {
 -- STATUS BAR (right side, like your tmux)
 -- =============================================================================
 
+-- Background poller for sysinfo (8Hz refresh from daemon)
+local function update_sysinfo()
+  local success, stdout = wezterm.run_child_process({
+    'wsl', '-e', 'cat', '/tmp/sysinfo'
+  })
+  if success and stdout then
+    local content = stdout:gsub('%s+$', '')
+    -- Split on double pipe: network || cpu/ram
+    local sep_start, sep_end = content:find('||', 1, true)
+    if sep_start then
+      wezterm.GLOBAL.sysinfo_net = content:sub(1, sep_start - 1)
+      wezterm.GLOBAL.sysinfo_cpuram = content:sub(sep_end + 1)
+    else
+      wezterm.GLOBAL.sysinfo_net = ''
+      wezterm.GLOBAL.sysinfo_cpuram = content
+    end
+  end
+  wezterm.time.call_after(0.125, update_sysinfo)  -- 8Hz
+end
+
+wezterm.time.call_after(0, update_sysinfo)
+
 wezterm.on('update-right-status', function(window, pane)
   local date = wezterm.strftime '%I:%M%p %a %d-%b'
+  local net = wezterm.GLOBAL.sysinfo_net or ''
+  local cpuram = wezterm.GLOBAL.sysinfo_cpuram or ''
 
   window:set_right_status(wezterm.format {
+    { Foreground = { Color = '#808080' } },
+    { Text = net .. '  ' },
+    { Foreground = { Color = '#39ff14' } },
+    { Text = cpuram .. '  ' },
     { Foreground = { Color = '#9d4edd' } },
     { Text = date .. ' ' },
   })
