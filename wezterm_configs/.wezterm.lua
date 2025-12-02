@@ -13,8 +13,10 @@ local resurrect = wezterm.plugin.require("https://github.com/MLFlexer/resurrect.
 -- CORE SETTINGS
 -- =============================================================================
 
--- Default to WSL
-config.default_domain = 'WSL:Ubuntu-24.04'
+-- Default to WSL on Windows, native shell on Linux
+if wezterm.target_triple:find('windows') then
+  config.default_domain = 'WSL:Ubuntu-24.04'
+end
 
 -- Performance
 config.front_end = 'WebGpu'
@@ -99,11 +101,67 @@ config.tab_bar_at_bottom = false
 config.hide_tab_bar_if_only_one_tab = false
 config.tab_max_width = 32
 
--- Inactive panes darker, no color change
+-- Inactive panes - dim but keep colors vibrant
 config.inactive_pane_hsb = {
-  saturation = 1.0,  -- no change to colors
-  brightness = 0.6,  -- 40% darker
+  hue = 1.0,
+  saturation = 1.05,   -- Slightly boost saturation to compensate for brightness loss
+  brightness = 0.55,   -- Noticeably dimmer
 }
+
+-- =============================================================================
+-- FOCUS-AWARE WINDOW EFFECTS
+-- =============================================================================
+-- Tier 1: Lua-based effects (works on Windows+WSL and Linux)
+-- Tier 2: GPU shader effects (Linux with dedicated GPU only - requires source mod)
+
+local is_linux = wezterm.target_triple:find('linux')
+local has_gpu = is_linux  -- Assume Linux = dedicated GPU for now
+
+-- Focus state styling
+local focus_config = {
+  -- When window is focused
+  focused = {
+    opacity = 1.0,
+    -- background_image = nil,  -- Could set a path here
+  },
+  -- When window loses focus
+  unfocused = {
+    opacity = 0.85,
+    -- background_image = '/path/to/unfocused-bg.png',  -- Optional
+  },
+}
+
+-- GPU-enhanced config (Linux only) - placeholder for future source mods
+if has_gpu then
+  focus_config.gpu_effects = {
+    enabled = false,  -- Set true when shader mods are ready
+    unfocused_animation = 'subtle_noise',  -- Future: noise, pulse, matrix, etc.
+    blur_radius = 5,
+  }
+end
+
+-- Apply focus changes dynamically
+wezterm.on('window-focus-changed', function(window, pane)
+  local overrides = window:get_config_overrides() or {}
+
+  if window:is_focused() then
+    -- === FOCUSED STATE ===
+    overrides.window_background_opacity = 1.0
+    overrides.foreground_text_hsb = nil  -- Normal text brightness
+  else
+    -- === UNFOCUSED STATE ===
+    overrides.window_background_opacity = 0.88
+
+    -- Dim text brightness only, keep full saturation (no pastel bullshit)
+    overrides.foreground_text_hsb = {
+      hue = 1.0,         -- Keep hue unchanged
+      saturation = 1.0,  -- Keep saturation full
+      brightness = 0.7,  -- Just dim it
+    }
+  end
+
+  window:set_config_overrides(overrides)
+end)
 
 -- =============================================================================
 -- FONT
