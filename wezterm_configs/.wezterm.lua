@@ -180,97 +180,19 @@ config.line_height = 1.1
 config.leader = { key = 'Space', mods = 'CTRL', timeout_milliseconds = 1000 }
 
 -- =============================================================================
--- KEYBINDINGS
+-- KEYBINDINGS (data-driven for dynamic help popup)
 -- =============================================================================
 
-config.keys = {
-  -- =========================================================================
-  -- DIRECT NAVIGATION (no leader, these are your most frequent)
-  -- =========================================================================
-
-  -- Alt+hjkl = navigate panes
-  { key = 'h', mods = 'ALT', action = act.ActivatePaneDirection 'Left' },
-  { key = 'j', mods = 'ALT', action = act.ActivatePaneDirection 'Down' },
-  { key = 'k', mods = 'ALT', action = act.ActivatePaneDirection 'Up' },
-  { key = 'l', mods = 'ALT', action = act.ActivatePaneDirection 'Right' },
-
-  -- Alt+Shift+h/l = previous/next tab
-  { key = 'h', mods = 'ALT|SHIFT', action = act.ActivateTabRelative(-1) },
-  { key = 'l', mods = 'ALT|SHIFT', action = act.ActivateTabRelative(1) },
-
-  -- =========================================================================
-  -- SCROLLBACK SNAP (scroll to bottom before sending these keys)
-  -- =========================================================================
-  -- When scrolled up in history, these will snap back to the CLI first
-
-  -- Ctrl+C = snap to bottom + send SIGINT
-  { key = 'c', mods = 'CTRL', action = act.Multiple {
-    act.ScrollToBottom,
-    act.SendKey { key = 'c', mods = 'CTRL' },
-  }},
-
-  -- Ctrl+L = snap to bottom + clear/redraw
-  { key = 'l', mods = 'CTRL', action = act.Multiple {
-    act.ScrollToBottom,
-    act.SendKey { key = 'l', mods = 'CTRL' },
-  }},
-
-  -- =========================================================================
-  -- COPY/PASTE (explicit only)
-  -- =========================================================================
-
-  -- Ctrl+Shift+C = copy selection to clipboard
-  { key = 'C', mods = 'CTRL|SHIFT', action = act.CopyTo 'Clipboard' },
-
-  -- Ctrl+Shift+V = paste from clipboard
-  { key = 'V', mods = 'CTRL|SHIFT', action = act.PasteFrom 'Clipboard' },
-
-  -- =========================================================================
-  -- LEADER-BASED (less frequent operations)
-  -- =========================================================================
-
-  -- Splits (like your tmux)
-  -- Leader + v = split right (horizontal)
-  { key = 'v', mods = 'LEADER', action = act.SplitHorizontal { domain = 'CurrentPaneDomain' } },
-  -- Leader + V = split down (vertical)
-  { key = 'V', mods = 'LEADER|SHIFT', action = act.SplitVertical { domain = 'CurrentPaneDomain' } },
-
-  -- Close
-  -- Leader + x = close current pane
-  { key = 'x', mods = 'LEADER', action = act.CloseCurrentPane { confirm = true } },
-  -- Leader + X = close current tab
-  { key = 'X', mods = 'LEADER|SHIFT', action = act.CloseCurrentTab { confirm = true } },
-
-  -- Tabs
-  -- Leader + n = new tab
-  { key = 'n', mods = 'LEADER', action = act.SpawnTab 'CurrentPaneDomain' },
-
-  -- Leader + number = switch to tab
-  { key = '1', mods = 'LEADER', action = act.ActivateTab(0) },
-  { key = '2', mods = 'LEADER', action = act.ActivateTab(1) },
-  { key = '3', mods = 'LEADER', action = act.ActivateTab(2) },
-  { key = '4', mods = 'LEADER', action = act.ActivateTab(3) },
-  { key = '5', mods = 'LEADER', action = act.ActivateTab(4) },
-  { key = '6', mods = 'LEADER', action = act.ActivateTab(5) },
-  { key = '7', mods = 'LEADER', action = act.ActivateTab(6) },
-  { key = '8', mods = 'LEADER', action = act.ActivateTab(7) },
-  { key = '9', mods = 'LEADER', action = act.ActivateTab(8) },
-
-  -- Pane operations
-  -- Leader + z = zoom/unzoom pane (fullscreen current pane)
-  { key = 'z', mods = 'LEADER', action = act.TogglePaneZoomState },
-
-  -- Leader + a = break current pane to new tab and switch to it
-  { key = 'a', mods = 'LEADER', action = wezterm.action_callback(function(window, pane)
+-- Complex callback actions (defined separately for readability)
+local actions = {
+  break_pane_to_tab = wezterm.action_callback(function(window, pane)
     local tab, _ = pane:move_to_new_tab()
     tab:activate()
-  end) },
+  end),
 
-  -- Leader + b = bring a pane from another tab into this one
-  { key = 'b', mods = 'LEADER', action = wezterm.action_callback(function(window, pane)
+  bring_pane_from_tab = wezterm.action_callback(function(window, pane)
     local current_tab_id = window:active_tab():tab_id()
     local choices = {}
-
     for _, mux_win in ipairs(wezterm.mux.all_windows()) do
       for _, tab in ipairs(mux_win:tabs()) do
         if tab:tab_id() ~= current_tab_id then
@@ -281,12 +203,10 @@ config.keys = {
         end
       end
     end
-
     if #choices == 0 then
       window:toast_notification('WezTerm', 'No panes in other tabs', nil, 2000)
       return
     end
-
     window:perform_action(wezterm.action.InputSelector {
       title = "Select pane to bring here",
       choices = choices,
@@ -301,57 +221,15 @@ config.keys = {
         end
       end),
     }, pane)
-  end) },
+  end),
 
-  -- Leader + p = swap current pane with another (picker)
-  { key = 'p', mods = 'LEADER', action = act.PaneSelect {
-    mode = 'SwapWithActive',
-    alphabet = '1234567890',
-  } },
-
-  -- Leader + { = rotate panes counter-clockwise
-  { key = '{', mods = 'LEADER|SHIFT', action = act.RotatePanes 'CounterClockwise' },
-
-  -- Leader + } = rotate panes clockwise
-  { key = '}', mods = 'LEADER|SHIFT', action = act.RotatePanes 'Clockwise' },
-
-  -- Copy mode (vim navigation in scrollback)
-  -- Leader + k = enter copy mode
-  { key = 'k', mods = 'LEADER', action = act.ActivateCopyMode },
-
-  -- Config
-  -- Leader + r = reload config
-  { key = 'r', mods = 'LEADER', action = act.ReloadConfiguration },
-
-  -- Search
-  -- Leader + f = search in scrollback
-  { key = 'f', mods = 'LEADER', action = act.Search 'CurrentSelectionOrEmptyString' },
-
-  -- Leader + g = open nvim with telescope live_grep (like space+s+g in nvim)
-  { key = 'g', mods = 'LEADER', action = act.SendString 'nvim -c "lua require(\'telescope.builtin\').live_grep()"\r' },
-
-  -- Quick select (URLs, file paths, etc - semantic selection!)
-  -- Leader + Space = quick select mode
-  { key = 'Space', mods = 'LEADER', action = act.QuickSelect },
-
-  -- Debug (useful for troubleshooting)
-  { key = '?', mods = 'LEADER|SHIFT', action = act.ShowDebugOverlay },
-
-  -- =========================================================================
-  -- SESSION MANAGEMENT (resurrect plugin)
-  -- =========================================================================
-  -- Auto-save runs every 5 min for crash recovery (see bottom of config)
-  -- Manual save/load uses a fixed "default_layout" slot for your preferred setup
-
-  -- Leader + Shift + S = save current layout as default
-  { key = 'S', mods = 'LEADER|SHIFT', action = wezterm.action_callback(function(win, pane)
+  save_layout = wezterm.action_callback(function(win, pane)
     local state = resurrect.workspace_state.get_workspace_state()
     resurrect.state_manager.save_state(state, "default_layout")
     win:toast_notification('WezTerm', 'Default layout saved', nil, 2000)
-  end) },
+  end),
 
-  -- Leader + Shift + D = restore default layout
-  { key = 'D', mods = 'LEADER|SHIFT', action = wezterm.action_callback(function(win, pane)
+  restore_layout = wezterm.action_callback(function(win, pane)
     local state = resurrect.state_manager.load_state("default_layout", "workspace")
     if state then
       resurrect.workspace_state.restore_workspace(state, {
@@ -363,8 +241,203 @@ config.keys = {
     else
       win:toast_notification('WezTerm', 'No default layout saved yet (use Leader+Shift+S)', nil, 3000)
     end
-  end) },
+  end),
 }
+
+-- Keybinding definitions: { key, mods, action, desc, group }
+-- Groups: nav, scrollback, clipboard, splits, tabs, panes, copymode, search, session, other
+local keybind_defs = {
+  -- Navigation
+  { key = 'h', mods = 'ALT', action = act.ActivatePaneDirection 'Left', desc = 'Navigate pane left', group = 'nav' },
+  { key = 'j', mods = 'ALT', action = act.ActivatePaneDirection 'Down', desc = 'Navigate pane down', group = 'nav' },
+  { key = 'k', mods = 'ALT', action = act.ActivatePaneDirection 'Up', desc = 'Navigate pane up', group = 'nav' },
+  { key = 'l', mods = 'ALT', action = act.ActivatePaneDirection 'Right', desc = 'Navigate pane right', group = 'nav' },
+  { key = 'h', mods = 'ALT|SHIFT', action = act.ActivateTabRelative(-1), desc = 'Previous tab', group = 'nav' },
+  { key = 'l', mods = 'ALT|SHIFT', action = act.ActivateTabRelative(1), desc = 'Next tab', group = 'nav' },
+
+  -- Scrollback snap
+  { key = 'c', mods = 'CTRL', action = act.Multiple { act.ScrollToBottom, act.SendKey { key = 'c', mods = 'CTRL' } }, desc = 'Snap to bottom + SIGINT', group = 'scrollback' },
+  { key = 'l', mods = 'CTRL', action = act.Multiple { act.ScrollToBottom, act.SendKey { key = 'l', mods = 'CTRL' } }, desc = 'Snap to bottom + clear', group = 'scrollback' },
+
+  -- Clipboard
+  { key = 'C', mods = 'CTRL|SHIFT', action = act.CopyTo 'Clipboard', desc = 'Copy to clipboard', group = 'clipboard' },
+  { key = 'V', mods = 'CTRL|SHIFT', action = act.PasteFrom 'Clipboard', desc = 'Paste from clipboard', group = 'clipboard' },
+
+  -- Splits
+  { key = 'v', mods = 'LEADER', action = act.SplitHorizontal { domain = 'CurrentPaneDomain' }, desc = 'Split right', group = 'splits' },
+  { key = 'V', mods = 'LEADER|SHIFT', action = act.SplitVertical { domain = 'CurrentPaneDomain' }, desc = 'Split down', group = 'splits' },
+
+  -- Tabs
+  { key = 'n', mods = 'LEADER', action = act.SpawnTab 'CurrentPaneDomain', desc = 'New tab', group = 'tabs' },
+  { key = 'x', mods = 'LEADER', action = act.CloseCurrentPane { confirm = true }, desc = 'Close pane', group = 'tabs' },
+  { key = 'X', mods = 'LEADER|SHIFT', action = act.CloseCurrentTab { confirm = true }, desc = 'Close tab', group = 'tabs' },
+  { key = '1', mods = 'LEADER', action = act.ActivateTab(0), desc = 'Go to tab 1', group = 'tabs' },
+  { key = '2', mods = 'LEADER', action = act.ActivateTab(1), desc = 'Go to tab 2', group = 'tabs' },
+  { key = '3', mods = 'LEADER', action = act.ActivateTab(2), desc = 'Go to tab 3', group = 'tabs' },
+  { key = '4', mods = 'LEADER', action = act.ActivateTab(3), desc = 'Go to tab 4', group = 'tabs' },
+  { key = '5', mods = 'LEADER', action = act.ActivateTab(4), desc = 'Go to tab 5', group = 'tabs' },
+  { key = '6', mods = 'LEADER', action = act.ActivateTab(5), desc = 'Go to tab 6', group = 'tabs' },
+  { key = '7', mods = 'LEADER', action = act.ActivateTab(6), desc = 'Go to tab 7', group = 'tabs' },
+  { key = '8', mods = 'LEADER', action = act.ActivateTab(7), desc = 'Go to tab 8', group = 'tabs' },
+  { key = '9', mods = 'LEADER', action = act.ActivateTab(8), desc = 'Go to tab 9', group = 'tabs' },
+
+  -- Panes
+  { key = 'z', mods = 'LEADER', action = act.TogglePaneZoomState, desc = 'Zoom pane toggle', group = 'panes' },
+  { key = 'a', mods = 'LEADER', action = actions.break_pane_to_tab, desc = 'Break pane to new tab', group = 'panes' },
+  { key = 'b', mods = 'LEADER', action = actions.bring_pane_from_tab, desc = 'Bring pane from other tab', group = 'panes' },
+  { key = 'p', mods = 'LEADER', action = act.PaneSelect { mode = 'SwapWithActive', alphabet = '1234567890' }, desc = 'Swap panes (picker)', group = 'panes' },
+  { key = '{', mods = 'LEADER|SHIFT', action = act.RotatePanes 'CounterClockwise', desc = 'Rotate panes CCW', group = 'panes' },
+  { key = '}', mods = 'LEADER|SHIFT', action = act.RotatePanes 'Clockwise', desc = 'Rotate panes CW', group = 'panes' },
+
+  -- Copy mode & search
+  { key = 'k', mods = 'LEADER', action = act.ActivateCopyMode, desc = 'Enter copy mode (vim nav)', group = 'copymode' },
+  { key = 'f', mods = 'LEADER', action = act.Search 'CurrentSelectionOrEmptyString', desc = 'Search scrollback', group = 'search' },
+  { key = 'g', mods = 'LEADER', action = act.SendString 'nvim -c "lua require(\'telescope.builtin\').live_grep()"\r', desc = 'Open nvim live grep', group = 'search' },
+  { key = 'Space', mods = 'LEADER', action = act.QuickSelect, desc = 'Quick select (URLs, paths)', group = 'search' },
+
+  -- Session management
+  { key = 'S', mods = 'LEADER|SHIFT', action = actions.save_layout, desc = 'Save default layout', group = 'session' },
+  { key = 'D', mods = 'LEADER|SHIFT', action = actions.restore_layout, desc = 'Restore default layout', group = 'session' },
+
+  -- Other
+  { key = 'r', mods = 'LEADER', action = act.ReloadConfiguration, desc = 'Reload config', group = 'other' },
+  { key = '\\', mods = 'LEADER|SHIFT', action = act.ShowDebugOverlay, desc = 'Debug overlay', group = 'other' },
+}
+
+-- Copy mode keybindings (separate table, also with descriptions for help)
+local copy_mode_defs = {
+  { key = 'h', mods = 'NONE', desc = 'Move left' },
+  { key = 'j', mods = 'NONE', desc = 'Move down' },
+  { key = 'k', mods = 'NONE', desc = 'Move up' },
+  { key = 'l', mods = 'NONE', desc = 'Move right' },
+  { key = 'w', mods = 'NONE', desc = 'Forward word' },
+  { key = 'b', mods = 'NONE', desc = 'Backward word' },
+  { key = 'e', mods = 'NONE', desc = 'End of word' },
+  { key = '0', mods = 'NONE', desc = 'Start of line' },
+  { key = '$', mods = 'SHIFT', desc = 'End of line' },
+  { key = 'g', mods = 'NONE', desc = 'Top of scrollback' },
+  { key = 'G', mods = 'SHIFT', desc = 'Bottom of scrollback' },
+  { key = 'Ctrl+u', mods = 'CTRL', desc = 'Page up' },
+  { key = 'Ctrl+d', mods = 'CTRL', desc = 'Page down' },
+  { key = 'v', mods = 'NONE', desc = 'Select characters' },
+  { key = 'V', mods = 'SHIFT', desc = 'Select lines' },
+  { key = 'y', mods = 'NONE', desc = 'Copy selection' },
+  { key = 'Enter', mods = 'NONE', desc = 'Copy and exit' },
+  { key = 'q/Esc', mods = 'NONE', desc = 'Exit copy mode' },
+}
+
+-- Helper: format keybind for display
+local function format_keybind(mods, key)
+  local parts = {}
+  if mods:find('LEADER') then table.insert(parts, '<Leader>') end
+  if mods:find('CTRL') and not mods:find('LEADER') then table.insert(parts, 'Ctrl') end
+  if mods:find('ALT') then table.insert(parts, 'Alt') end
+  if mods:find('SHIFT') then table.insert(parts, 'Shift') end
+  table.insert(parts, key)
+  return table.concat(parts, '+')
+end
+
+-- Build config.keys from definitions
+config.keys = {}
+for _, kb in ipairs(keybind_defs) do
+  table.insert(config.keys, { key = kb.key, mods = kb.mods, action = kb.action })
+end
+
+-- Add help keybinding (Leader + h)
+-- Opens full-screen help in new tab, q to close and return
+table.insert(config.keys, {
+  key = 'h',
+  mods = 'LEADER',
+  action = wezterm.action_callback(function(window, pane)
+    -- ANSI colors matching theme
+    local purple = '\x1b[38;2;157;78;221m'
+    local cyan = '\x1b[38;2;78;205;196m'
+    local yellow = '\x1b[38;2;255;230;109m'
+    local dim = '\x1b[38;2;96;96;96m'
+    local reset = '\x1b[0m'
+    local bold = '\x1b[1m'
+
+    local group_names = {
+      nav = 'NAVIGATION',
+      scrollback = 'SCROLLBACK',
+      clipboard = 'CLIPBOARD',
+      splits = 'SPLITS',
+      tabs = 'TABS',
+      panes = 'PANES',
+      copymode = 'COPY MODE',
+      search = 'SEARCH',
+      session = 'SESSION',
+      other = 'OTHER',
+    }
+    local group_order = { 'nav', 'scrollback', 'clipboard', 'splits', 'tabs', 'panes', 'copymode', 'search', 'session', 'other' }
+
+    -- Group keybindings
+    local grouped = {}
+    for _, kb in ipairs(keybind_defs) do
+      local g = kb.group or 'other'
+      if not grouped[g] then grouped[g] = {} end
+      table.insert(grouped[g], kb)
+    end
+
+    -- Build help text
+    local lines = {}
+    table.insert(lines, '')
+    table.insert(lines, purple .. '  ╔══════════════════════════════════════════════════════╗' .. reset)
+    table.insert(lines, purple .. '  ║' .. reset .. bold .. '           WezTerm Keybinding Reference               ' .. reset .. purple .. '║' .. reset)
+    table.insert(lines, purple .. '  ║' .. reset .. dim .. '               Leader = Ctrl+Space                    ' .. reset .. purple .. '║' .. reset)
+    table.insert(lines, purple .. '  ╚══════════════════════════════════════════════════════╝' .. reset)
+    table.insert(lines, '')
+
+    for _, group in ipairs(group_order) do
+      if grouped[group] then
+        table.insert(lines, '  ' .. cyan .. bold .. '┄┄┄ ' .. group_names[group] .. ' ┄┄┄' .. reset)
+        for _, kb in ipairs(grouped[group]) do
+          local keystr = format_keybind(kb.mods, kb.key)
+          table.insert(lines, '    ' .. yellow .. string.format('%-18s', keystr) .. reset .. ' ' .. dim .. kb.desc .. reset)
+        end
+        table.insert(lines, '')
+      end
+    end
+
+    -- Copy mode section
+    table.insert(lines, '  ' .. cyan .. bold .. '┄┄┄ COPY MODE (after Leader+k) ┄┄┄' .. reset)
+    for _, kb in ipairs(copy_mode_defs) do
+      table.insert(lines, '    ' .. yellow .. string.format('%-18s', kb.key) .. reset .. ' ' .. dim .. kb.desc .. reset)
+    end
+    table.insert(lines, '')
+    table.insert(lines, dim .. '  Press q to close' .. reset)
+    table.insert(lines, '')
+
+    -- Write to temp file (handle both native Linux and Windows/WSL)
+    local help_text = table.concat(lines, '\n')
+    local is_windows = wezterm.target_triple:find('windows')
+    local temp_file, less_path
+
+    if is_windows then
+      -- Windows: write to Windows temp, convert to WSL path for less
+      local temp_dir = os.getenv('TEMP') or os.getenv('TMP') or 'C:\\Temp'
+      temp_file = temp_dir .. '\\wezterm_help.txt'
+      less_path = temp_file:gsub('\\', '/'):gsub('^(%a):', function(drive)
+        return '/mnt/' .. drive:lower()
+      end)
+    else
+      -- Native Linux: write directly to /tmp
+      temp_file = '/tmp/wezterm_help.txt'
+      less_path = temp_file
+    end
+
+    local file = io.open(temp_file, 'w')
+    if file then
+      file:write(help_text)
+      file:close()
+    end
+
+    -- Open in new tab with less, tab closes when less exits
+    window:perform_action(act.SpawnCommandInNewTab {
+      args = { 'less', '-R', less_path },
+    }, pane)
+  end),
+})
 
 -- =============================================================================
 -- COPY MODE (vim keybindings for scrollback navigation)
