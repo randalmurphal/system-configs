@@ -140,28 +140,30 @@ if has_gpu then
   }
 end
 
--- Apply focus changes dynamically
-wezterm.on('window-focus-changed', function(window, pane)
-  local overrides = window:get_config_overrides() or {}
+-- Apply focus changes dynamically (Linux only - Windows/WSL has perf issues with config overrides)
+if is_linux then
+  wezterm.on('window-focus-changed', function(window, pane)
+    local overrides = window:get_config_overrides() or {}
 
-  if window:is_focused() then
-    -- === FOCUSED STATE ===
-    overrides.window_background_opacity = 1.0
-    overrides.foreground_text_hsb = nil  -- Normal text brightness
-  else
-    -- === UNFOCUSED STATE ===
-    overrides.window_background_opacity = 0.88
+    if window:is_focused() then
+      -- === FOCUSED STATE ===
+      overrides.window_background_opacity = 1.0
+      overrides.foreground_text_hsb = nil  -- Normal text brightness
+    else
+      -- === UNFOCUSED STATE ===
+      overrides.window_background_opacity = 0.88
 
-    -- Dim text brightness only, keep full saturation (no pastel bullshit)
-    overrides.foreground_text_hsb = {
-      hue = 1.0,         -- Keep hue unchanged
-      saturation = 1.0,  -- Keep saturation full
-      brightness = 0.7,  -- Just dim it
-    }
-  end
+      -- Dim text brightness only, keep full saturation (no pastel bullshit)
+      overrides.foreground_text_hsb = {
+        hue = 1.0,         -- Keep hue unchanged
+        saturation = 1.0,  -- Keep saturation full
+        brightness = 0.7,  -- Just dim it
+      }
+    end
 
-  window:set_config_overrides(overrides)
-end)
+    window:set_config_overrides(overrides)
+  end)
+end
 
 -- =============================================================================
 -- FONT
@@ -195,6 +197,23 @@ config.keys = {
   -- Alt+Shift+h/l = previous/next tab
   { key = 'h', mods = 'ALT|SHIFT', action = act.ActivateTabRelative(-1) },
   { key = 'l', mods = 'ALT|SHIFT', action = act.ActivateTabRelative(1) },
+
+  -- =========================================================================
+  -- SCROLLBACK SNAP (scroll to bottom before sending these keys)
+  -- =========================================================================
+  -- When scrolled up in history, these will snap back to the CLI first
+
+  -- Ctrl+C = snap to bottom + send SIGINT
+  { key = 'c', mods = 'CTRL', action = act.Multiple {
+    act.ScrollToBottom,
+    act.SendKey { key = 'c', mods = 'CTRL' },
+  }},
+
+  -- Ctrl+L = snap to bottom + clear/redraw
+  { key = 'l', mods = 'CTRL', action = act.Multiple {
+    act.ScrollToBottom,
+    act.SendKey { key = 'l', mods = 'CTRL' },
+  }},
 
   -- =========================================================================
   -- COPY/PASTE (explicit only)
@@ -321,24 +340,29 @@ config.keys = {
   -- =========================================================================
   -- SESSION MANAGEMENT (resurrect plugin)
   -- =========================================================================
+  -- Auto-save runs every 5 min for crash recovery (see bottom of config)
+  -- Manual save/load uses a fixed "default_layout" slot for your preferred setup
 
-  -- Leader + s = save current state
-  { key = 's', mods = 'LEADER', action = wezterm.action_callback(function(win, pane)
+  -- Leader + Shift + S = save current layout as default
+  { key = 'S', mods = 'LEADER|SHIFT', action = wezterm.action_callback(function(win, pane)
     local state = resurrect.workspace_state.get_workspace_state()
-    resurrect.state_manager.save_state(state)
-    wezterm.log_info("Session saved")
+    resurrect.state_manager.save_state(state, "default_layout")
+    win:toast_notification('WezTerm', 'Default layout saved', nil, 2000)
   end) },
 
-  -- Leader + R = restore (fuzzy finder to pick from saved states)
-  { key = 'R', mods = 'LEADER|SHIFT', action = wezterm.action_callback(function(win, pane)
-    resurrect.fuzzy_loader.fuzzy_load(win, pane, function(id, label)
-      local state = resurrect.state_manager.load_state(id, "workspace")
+  -- Leader + Shift + D = restore default layout
+  { key = 'D', mods = 'LEADER|SHIFT', action = wezterm.action_callback(function(win, pane)
+    local state = resurrect.state_manager.load_state("default_layout", "workspace")
+    if state then
       resurrect.workspace_state.restore_workspace(state, {
         window = win,
         relative = true,
         restore_text = true,
       })
-    end)
+      win:toast_notification('WezTerm', 'Default layout restored', nil, 2000)
+    else
+      win:toast_notification('WezTerm', 'No default layout saved yet (use Leader+Shift+S)', nil, 3000)
+    end
   end) },
 }
 
@@ -349,9 +373,15 @@ config.keys = {
 
 config.key_tables = {
   copy_mode = {
-    -- Exit copy mode (removes highlighting, snaps to command line)
-    { key = 'Escape', mods = 'NONE', action = act.CopyMode 'Close' },
-    { key = 'q', mods = 'NONE', action = act.CopyMode 'Close' },
+    -- Exit copy mode (snaps to bottom)
+    { key = 'Escape', mods = 'NONE', action = act.Multiple {
+      act.CopyMode 'Close',
+      act.ScrollToBottom,
+    }},
+    { key = 'q', mods = 'NONE', action = act.Multiple {
+      act.CopyMode 'Close',
+      act.ScrollToBottom,
+    }},
 
     -- Movement (vim-style)
     { key = 'h', mods = 'NONE', action = act.CopyMode 'MoveLeft' },
@@ -372,8 +402,8 @@ config.key_tables = {
     -- Page/document movement
     { key = 'g', mods = 'NONE', action = act.CopyMode 'MoveToScrollbackTop' },
     { key = 'G', mods = 'SHIFT', action = act.CopyMode 'MoveToScrollbackBottom' },
-    { key = 'u', mods = 'CTRL|SHIFT', action = act.CopyMode 'PageUp' },
-    { key = 'd', mods = 'CTRL|SHIFT', action = act.CopyMode 'PageDown' },
+    { key = 'u', mods = 'CTRL', action = act.CopyMode 'PageUp' },
+    { key = 'd', mods = 'CTRL', action = act.CopyMode 'PageDown' },
 
     -- Selection
     { key = 'v', mods = 'NONE', action = act.CopyMode { SetSelectionMode = 'Cell' } },
@@ -390,6 +420,7 @@ config.key_tables = {
     { key = 'Enter', mods = 'NONE', action = act.Multiple {
       act.CopyTo 'Clipboard',
       act.CopyMode 'Close',
+      act.ScrollToBottom,
     }},
   },
 }

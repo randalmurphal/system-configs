@@ -50,6 +50,51 @@ if [ "$ZSH_HIGHLIGHT_BREW" = true ]; then
 fi
 
 # ========================================
+# FZF INTEGRATION
+# ========================================
+# Ctrl+R = fuzzy history, Ctrl+T = fuzzy file finder, Alt+C = fuzzy cd
+# Linux (apt install fzf)
+[ -f /usr/share/doc/fzf/examples/key-bindings.zsh ] && source /usr/share/doc/fzf/examples/key-bindings.zsh
+[ -f /usr/share/doc/fzf/examples/completion.zsh ] && source /usr/share/doc/fzf/examples/completion.zsh
+# macOS (brew install fzf)
+[ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
+
+# ========================================
+# COMPLETION STYLING
+# ========================================
+zstyle ':completion:*' menu select                    # Arrow-navigable menu
+zstyle ':completion:*' matcher-list 'm:{a-z}={A-Z}'   # Case insensitive
+zstyle ':completion:*' list-colors ${(s.:.)LS_COLORS} # ls-style colors
+
+# ========================================
+# HISTORY SETTINGS
+# ========================================
+HISTSIZE=50000                   # Commands in memory
+SAVEHIST=50000                   # Commands saved to file
+HISTFILE=~/.zsh_history
+setopt INC_APPEND_HISTORY        # Write to file immediately (new tabs see it)
+setopt HIST_IGNORE_ALL_DUPS      # No duplicates
+setopt HIST_IGNORE_SPACE         # Prefix with space = not saved (for secrets)
+setopt HIST_REDUCE_BLANKS        # Clean up whitespace
+
+# ========================================
+# ZSH-AUTOSUGGESTIONS CONFIG
+# ========================================
+# Ctrl+E = accept full suggestion, Ctrl+Right = accept next word
+bindkey '^E' autosuggest-accept
+bindkey '^[[1;5C' forward-word
+
+# Context-aware suggestions: "what do I usually run after the previous command?"
+ZSH_AUTOSUGGEST_STRATEGY=(match_prev_cmd history)
+
+# ========================================
+# TERMINAL CWD REPORTING (OSC 7)
+# ========================================
+# Tells WezTerm the current directory so resurrect can restore pane locations
+chpwd() { printf '\e]7;file://%s%s\e\\' "${HOST}" "${PWD}" }
+chpwd  # Report on shell startup too
+
+# ========================================
 # CUSTOM PROMPT
 # ========================================
 git_branch() {
