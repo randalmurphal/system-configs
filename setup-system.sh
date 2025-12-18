@@ -297,6 +297,113 @@ fi\
     print_success "Homebrew completions fixed"
 }
 
+# Check neovim version - returns 0 if version >= minimum, 1 otherwise
+check_nvim_version() {
+    local min_version="${1:-0.9.0}"
+
+    if ! command -v nvim &> /dev/null; then
+        return 1
+    fi
+
+    local current_version=$(nvim --version 2>/dev/null | head -1 | grep -oP 'v\K[0-9]+\.[0-9]+\.[0-9]+' || echo "0.0.0")
+
+    # Compare versions (simple numeric comparison)
+    local current_major=$(echo "$current_version" | cut -d. -f1)
+    local current_minor=$(echo "$current_version" | cut -d. -f2)
+    local min_major=$(echo "$min_version" | cut -d. -f1)
+    local min_minor=$(echo "$min_version" | cut -d. -f2)
+
+    if [ "$current_major" -gt "$min_major" ]; then
+        return 0
+    elif [ "$current_major" -eq "$min_major" ] && [ "$current_minor" -ge "$min_minor" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Install neovim on Linux with version checking and fallbacks
+install_neovim_linux() {
+    local MIN_NVIM_VERSION="0.9.0"
+
+    print_info "Checking neovim installation..."
+
+    # Check if nvim is already installed with sufficient version
+    if check_nvim_version "$MIN_NVIM_VERSION"; then
+        local current_version=$(nvim --version | head -1)
+        print_success "Neovim already installed: $current_version"
+        return 0
+    fi
+
+    # For apt-based systems, avoid the outdated apt version
+    if [ "$PKG_MANAGER" = "apt" ]; then
+        print_info "apt has outdated neovim - trying alternatives..."
+
+        # Try snap first (preferred)
+        if command -v snap &> /dev/null; then
+            print_info "Installing neovim via snap..."
+            if sudo snap install nvim --classic; then
+                print_success "Neovim installed via snap"
+                return 0
+            fi
+            print_warning "snap install failed, trying AppImage..."
+        fi
+
+        # Fallback to AppImage
+        print_info "Installing neovim via AppImage..."
+        local nvim_appimage_url="https://github.com/neovim/neovim/releases/latest/download/nvim.appimage"
+        local nvim_install_dir="$HOME/.local/bin"
+        mkdir -p "$nvim_install_dir"
+
+        if curl -Lo "$nvim_install_dir/nvim" "$nvim_appimage_url" && chmod +x "$nvim_install_dir/nvim"; then
+            # Test if AppImage works (some systems need FUSE)
+            if "$nvim_install_dir/nvim" --version &> /dev/null; then
+                print_success "Neovim AppImage installed to $nvim_install_dir/nvim"
+                print_info "Make sure $nvim_install_dir is in your PATH"
+                return 0
+            else
+                print_warning "AppImage requires FUSE. Extracting instead..."
+                cd "$nvim_install_dir"
+                ./nvim --appimage-extract &> /dev/null
+                rm nvim
+                ln -sf squashfs-root/usr/bin/nvim nvim
+                if ./nvim --version &> /dev/null; then
+                    print_success "Neovim extracted and installed to $nvim_install_dir/nvim"
+                    return 0
+                fi
+                print_error "Failed to install neovim AppImage"
+                cd - > /dev/null
+            fi
+        fi
+
+        print_error "Could not install neovim automatically"
+        print_info "Manual options:"
+        print_info "  1. Install snapd: sudo apt install snapd && sudo snap install nvim --classic"
+        print_info "  2. Build from source: https://github.com/neovim/neovim/wiki/Building-Neovim"
+        return 1
+    fi
+
+    # For other package managers, install via package manager and check version
+    print_info "Installing neovim via $PKG_MANAGER..."
+    sudo $PKG_INSTALL neovim || {
+        print_warning "Failed to install neovim via $PKG_MANAGER"
+        return 1
+    }
+
+    # Check if installed version meets requirements
+    if check_nvim_version "$MIN_NVIM_VERSION"; then
+        local current_version=$(nvim --version | head -1)
+        print_success "Neovim installed: $current_version"
+    else
+        local current_version=$(nvim --version 2>/dev/null | head -1 || echo "unknown")
+        print_warning "Installed neovim version ($current_version) may be too old"
+        print_warning "Minimum recommended: v$MIN_NVIM_VERSION"
+        print_info "For latest version, consider installing from:"
+        print_info "  - AppImage: https://github.com/neovim/neovim/releases"
+        print_info "  - Build from source: https://github.com/neovim/neovim/wiki/Building-Neovim"
+    fi
+}
+
 # Install system packages
 install_system_packages() {
     print_header "INSTALLING SYSTEM PACKAGES"
@@ -370,15 +477,8 @@ install_system_packages() {
             curl -sS https://raw.githubusercontent.com/ajeetdsouza/zoxide/main/install.sh | bash 2>/dev/null || print_warning "Failed to install zoxide"
         fi
 
-        # Install neovim via snap on apt-based systems (apt repos have outdated versions)
-        if [ "$PKG_MANAGER" = "apt" ]; then
-            print_info "Installing neovim via snap (apt version is outdated)..."
-            if command -v snap &> /dev/null; then
-                sudo snap install nvim --classic && print_success "Neovim installed via snap" || print_warning "Failed to install neovim via snap"
-            else
-                print_warning "snap not available - install snapd first, then run: sudo snap install nvim --classic"
-            fi
-        fi
+        # Install neovim - handle version requirements
+        install_neovim_linux
     fi
     
     # Install pip3 on macOS if not present

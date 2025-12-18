@@ -1,9 +1,11 @@
 # Generic Aliases - portable across machines
 
-# Editor
-alias vim='nvim'
-alias vi='nvim'
-alias v='nvim'
+# Editor (only alias if nvim is available)
+if command -v nvim &> /dev/null; then
+    alias vim='nvim'
+    alias vi='nvim'
+    alias v='nvim'
+fi
 
 # Git shortcuts
 alias gs='git status'
