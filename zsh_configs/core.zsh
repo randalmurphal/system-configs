@@ -117,5 +117,6 @@ PROMPT='$(virtualenv_info)[%F{green}%n%f:%F{blue}%m%f]$(git_branch | sed "s/.*/:
 # ========================================
 # ENVIRONMENT VARIABLES
 # ========================================
-export REPOS_PATH="$HOME/repos"
+# REPOS_PATH can be set before sourcing to override default
+export REPOS_PATH="${REPOS_PATH:-$HOME/repos}"
 export RUFF_CONFIG="$REPOS_PATH/system-configs/ruff.toml"

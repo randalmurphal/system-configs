@@ -154,66 +154,44 @@ get_repos_path() {
     print_success "Repositories path set to: $REPOS_PATH"
 }
 
-# Get Python virtual environment path and create if needed
+# Get Python virtual environment path (existing only, no creation)
 get_python_venv() {
     print_header "CONFIGURE PYTHON VIRTUAL ENVIRONMENT"
-    echo -e "Would you like to set up a Python virtual environment?"
-    echo -e "This will be automatically activated in your shell."
-    echo -e "You can skip this if you prefer to manage venvs per-project."
+    echo -e "Do you have an existing Python virtual environment you want to auto-activate?"
+    echo -e "This will add it to your shell startup."
     echo
-    read -p "Set up global venv? (y/n): " setup_venv
+    read -p "Use existing venv? (y/n): " use_venv
 
-    if [ "$setup_venv" != "y" ] && [ "$setup_venv" != "Y" ]; then
+    if [ "$use_venv" != "y" ] && [ "$use_venv" != "Y" ]; then
         print_info "Skipping virtual environment setup"
+        print_info "Note: If you need a Python venv later, create one and add it to ~/.zsh.d/00-venv.sh"
         VENV_PATH=""
         return 0
     fi
 
-    echo -e "Where would you like to store your Python virtual environment?"
-    echo -e "Default: ${GREEN}$HOME/.venv${NC}"
+    echo -e "Enter the path to your existing virtual environment:"
+    echo -e "Example: ${GREEN}/opt/envs/myenv${NC} or ${GREEN}$HOME/.venv${NC}"
     echo
-    read -p "Enter path (or press Enter for default): " user_venv_path
+    read -p "Venv path: " user_venv_path
 
     if [ -z "$user_venv_path" ]; then
-        VENV_PATH="$HOME/.venv"
-    else
-        VENV_PATH="$user_venv_path"
+        print_warning "No path provided, skipping venv setup"
+        VENV_PATH=""
+        return 0
     fi
-    
-    # Check if virtual environment exists
-    if [ -f "$VENV_PATH/bin/activate" ]; then
-        print_success "Virtual environment already exists at: $VENV_PATH"
-    else
-        print_info "Virtual environment not found at: $VENV_PATH"
-        echo "Do you want to create it? (y/n)"
-        read -r create_venv
-        
-        if [ "$create_venv" = "y" ] || [ "$create_venv" = "Y" ]; then
-            print_info "Creating virtual environment..."
-            
-            # Ensure parent directory exists
-            mkdir -p "$(dirname "$VENV_PATH")"
 
-            # Create the virtual environment
-            if python3 -m venv "$VENV_PATH"; then
-                print_success "Virtual environment created at: $VENV_PATH"
-                
-                # Activate and install some basic packages
-                print_info "Installing basic Python packages..."
-                source "$VENV_PATH/bin/activate"
-                pip install --upgrade pip
-                pip install ruff black isort pyright
-                deactivate
-                print_success "Basic Python packages installed"
-            else
-                print_error "Failed to create virtual environment"
-                print_warning "You may need to install python3-venv package"
-                VENV_PATH=""
-            fi
-        else
-            print_warning "Skipping virtual environment creation"
-            VENV_PATH=""
-        fi
+    # Expand ~ if used
+    user_venv_path="${user_venv_path/#\~/$HOME}"
+
+    # Check if virtual environment exists
+    if [ -f "$user_venv_path/bin/activate" ]; then
+        VENV_PATH="$user_venv_path"
+        print_success "Virtual environment found at: $VENV_PATH"
+    else
+        print_error "No valid venv found at: $user_venv_path"
+        print_info "Expected to find: $user_venv_path/bin/activate"
+        print_warning "Skipping venv setup. Create a venv first, then add to ~/.zsh.d/00-venv.sh"
+        VENV_PATH=""
     fi
 }
 
@@ -584,123 +562,222 @@ install_oh_my_zsh() {
 
 # Setup shell configuration (supports both bash and zsh)
 setup_shell_config() {
-    # Determine which shell config file and template to use
     if [ "$CHOSEN_SHELL" = "zsh" ]; then
-        SHELL_CONFIG_FILE="$HOME/.zshrc"
-        CONFIG_NAME="zshrc"
-        CONFIG_TEMPLATE="$REPOS_PATH/system-configs/zsh_configs/.zshrc"
-        
-        # Check for .zsh_profile (not a standard Zsh file - might cause confusion)
-        if [ "$OS_TYPE" = "macos" ] && [ -f "$HOME/.zsh_profile" ]; then
-            print_warning "Found .zsh_profile (non-standard file - Zsh uses .zshrc for interactive shells)"
-            echo "This file is NOT normally used by Zsh. It may have been created by mistake."
-            echo "Standard Zsh files are: .zshrc (interactive) and .zprofile (login)"
-            echo ""
-            echo "Would you like to:"
-            echo "1. Merge its contents into .zshrc and remove it (recommended)"
-            echo "2. Keep it as is"
-            echo "3. Back it up and remove it"
-            read -p "Choice (1/2/3): " profile_choice
-            
-            case "$profile_choice" in
-                "1")
-                    print_info "Merging .zsh_profile contents into .zshrc..."
-                    echo "" >> "$HOME/.zshrc"
-                    echo "# === Merged from .zsh_profile ===" >> "$HOME/.zshrc"
-                    cat "$HOME/.zsh_profile" >> "$HOME/.zshrc"
-                    echo "# === End merged content ===" >> "$HOME/.zshrc"
-                    mv "$HOME/.zsh_profile" "$HOME/.zsh_profile.backup-$(date +%Y%m%d-%H%M%S)"
-                    print_success "Merged and backed up .zsh_profile"
-                    ;;
-                "3")
-                    mv "$HOME/.zsh_profile" "$HOME/.zsh_profile.backup-$(date +%Y%m%d-%H%M%S)"
-                    print_info "Moved .zsh_profile to backup"
-                    ;;
-                *)
-                    print_info "Keeping .zsh_profile as is"
-                    ;;
-            esac
-        fi
+        setup_zsh_config
     else
-        # Bash configuration - determine based on OS
-        if [ "$OS_TYPE" = "macos" ]; then
-            SHELL_CONFIG_FILE="$HOME/.bash_profile"
-            CONFIG_NAME="bash_profile"
-        else
-            SHELL_CONFIG_FILE="$HOME/.bashrc"
-            CONFIG_NAME="bashrc"
-        fi
-        CONFIG_TEMPLATE="$REPOS_PATH/system-configs/bash_configs/.bashrc"
+        setup_bash_config
     fi
-    
-    print_header "CONFIGURING SHELL ($CONFIG_NAME)"
-    
+}
+
+# Setup ZSH configuration (modular approach)
+setup_zsh_config() {
+    print_header "CONFIGURING ZSH (Modular Setup)"
+
+    SHELL_CONFIG_FILE="$HOME/.zshrc"
+    ZSH_LOCAL_DIR="$HOME/.zsh.d"
+
+    # Check for .zsh_profile (non-standard file)
+    if [ -f "$HOME/.zsh_profile" ]; then
+        print_warning "Found .zsh_profile (non-standard file - Zsh uses .zshrc)"
+        echo "Would you like to back it up and remove it? (y/n)"
+        read -p "Choice: " profile_choice
+        if [ "$profile_choice" = "y" ] || [ "$profile_choice" = "Y" ]; then
+            mv "$HOME/.zsh_profile" "$HOME/.zsh_profile.backup-$(date +%Y%m%d-%H%M%S)"
+            print_info "Backed up .zsh_profile"
+        fi
+    fi
+
+    # Create ~/.zsh.d/ directory
+    print_info "Creating local config directory: $ZSH_LOCAL_DIR"
+    mkdir -p "$ZSH_LOCAL_DIR"
+
+    # Create README in ~/.zsh.d/
+    create_zsh_local_readme
+
+    # Create venv config if user specified one
+    if [ -n "$VENV_PATH" ]; then
+        print_info "Creating venv activation config..."
+        cat > "$ZSH_LOCAL_DIR/00-venv.sh" << EOF
+# Virtual Environment Activation
+# Auto-activate this venv on shell startup
+
+source "$VENV_PATH/bin/activate"
+EOF
+        print_success "Created $ZSH_LOCAL_DIR/00-venv.sh"
+    fi
+
+    # Create REPOS_PATH override if not default
+    if [ "$REPOS_PATH" != "$HOME/repos" ]; then
+        print_info "Creating custom REPOS_PATH config..."
+        cat > "$ZSH_LOCAL_DIR/05-paths.sh" << EOF
+# Custom Paths
+# Set before system-configs is sourced to override defaults
+
+export REPOS_PATH="$REPOS_PATH"
+EOF
+        print_success "Created $ZSH_LOCAL_DIR/05-paths.sh"
+    fi
+
+    # Check if ~/.zshrc already sources system-configs (idempotent check)
+    if [ -f "$SHELL_CONFIG_FILE" ] && grep -q "system-configs/zsh_configs" "$SHELL_CONFIG_FILE" 2>/dev/null; then
+        print_success "~/.zshrc already configured to source system-configs"
+        echo "Do you want to regenerate it anyway? (y/n)"
+        read -r regen_choice
+        if [ "$regen_choice" != "y" ] && [ "$regen_choice" != "Y" ]; then
+            print_info "Keeping existing ~/.zshrc"
+            return 0
+        fi
+        # Backup existing
+        cp "$SHELL_CONFIG_FILE" "$SHELL_CONFIG_FILE.backup-$(date +%Y%m%d-%H%M%S)"
+        print_info "Backed up existing ~/.zshrc"
+    elif [ -f "$SHELL_CONFIG_FILE" ]; then
+        # Backup existing zshrc that doesn't have our config
+        cp "$SHELL_CONFIG_FILE" "$SHELL_CONFIG_FILE.backup-$(date +%Y%m%d-%H%M%S)"
+        print_info "Backed up existing ~/.zshrc"
+    fi
+
+    # Create new ~/.zshrc
+    print_info "Creating ~/.zshrc..."
+    cat > "$SHELL_CONFIG_FILE" << 'ZSHRC_EOF'
+# Randy's ZSH Configuration
+# Minimal loader - sources portable config + local machine-specific configs
+
+# ========================================
+# LOCAL CONFIG (machine-specific, loaded first for overrides)
+# ========================================
+# Source all files in ~/.zsh.d/ in alphabetical order
+# (N) = nullglob - don't error if no matches
+for conf in ~/.zsh.d/*.sh(N); do
+    source "$conf"
+done
+
+# ========================================
+# PORTABLE CONFIG (from system-configs repo)
+# ========================================
+ZSHRC_EOF
+
+    # Add the source line with the actual REPOS_PATH
+    echo "source \"$REPOS_PATH/system-configs/zsh_configs/.zshrc\"" >> "$SHELL_CONFIG_FILE"
+
+    cat >> "$SHELL_CONFIG_FILE" << 'ZSHRC_EOF'
+
+# ========================================
+# MACHINE-SPECIFIC OVERRIDES
+# ========================================
+# Add any machine-specific settings below this line
+# (or better: put them in ~/.zsh.d/90-local.sh)
+
+# Increase file descriptor limit for various tools
+ulimit -n 4096 2>/dev/null
+
+# macOS-specific
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES
+fi
+ZSHRC_EOF
+
+    print_success "Created ~/.zshrc"
+    print_info "Local configs go in: $ZSH_LOCAL_DIR/"
+    print_info "See $ZSH_LOCAL_DIR/README for details"
+}
+
+# Create README for ~/.zsh.d/
+create_zsh_local_readme() {
+    cat > "$ZSH_LOCAL_DIR/README" << 'README_EOF'
+# ~/.zsh.d/ - Local ZSH Configuration
+
+This directory contains machine-specific shell configuration that is NOT
+committed to version control. Files are sourced in alphabetical order.
+
+## File Naming Convention
+
+Use numbered prefixes to control load order:
+- 00-*.sh  - Early setup (venv activation, PATH prepends)
+- 05-*.sh  - Path overrides (REPOS_PATH, etc.)
+- 10-*.sh  - Project-specific config (aliases, env vars)
+- 20-*.sh  - Tool-specific config (Claude, MCP, etc.)
+- 30-*.sh  - Credentials (chmod 600!)
+- 90-*.sh  - Local overrides (machine-specific tweaks)
+
+## Example Files
+
+00-venv.sh:
+    source /path/to/your/venv/bin/activate
+
+10-myproject.sh:
+    export PROJECT_API_KEY="..."
+    alias cdp="cd ~/repos/myproject"
+
+30-credentials.sh:  (chmod 600!)
+    export GITHUB_TOKEN="..."
+    export AWS_ACCESS_KEY_ID="..."
+
+## Important
+
+- Files must end in .sh to be sourced
+- Credentials files should be chmod 600
+- These files are NOT tracked in git
+- The system-configs repo has the portable/shared config
+README_EOF
+    print_success "Created $ZSH_LOCAL_DIR/README"
+}
+
+# Setup Bash configuration (legacy monolithic approach)
+setup_bash_config() {
+    print_header "CONFIGURING BASH"
+
+    # Bash configuration - determine based on OS
+    if [ "$OS_TYPE" = "macos" ]; then
+        SHELL_CONFIG_FILE="$HOME/.bash_profile"
+        CONFIG_NAME="bash_profile"
+    else
+        SHELL_CONFIG_FILE="$HOME/.bashrc"
+        CONFIG_NAME="bashrc"
+    fi
+    CONFIG_TEMPLATE="$REPOS_PATH/system-configs/bash_configs/.bashrc"
+
     # Create a temp file with our additions
     temp_additions=$(mktemp)
-    
+
     # Replace REPOS_PATH and VENV_PATH in the template
     if [ -n "$VENV_PATH" ]; then
         sed -e "s|REPOS_PATH_PLACEHOLDER|$REPOS_PATH|g" -e "s|VENV_PATH_PLACEHOLDER|$VENV_PATH|g" "$CONFIG_TEMPLATE" > "$temp_additions"
     else
-        # If no venv path, comment out the venv section
         sed -e "s|REPOS_PATH_PLACEHOLDER|$REPOS_PATH|g" -e "s|if \[ -f \"VENV_PATH_PLACEHOLDER|# if [ -f \"VENV_PATH_PLACEHOLDER|g" -e "s|source \"VENV_PATH_PLACEHOLDER|# source \"VENV_PATH_PLACEHOLDER|g" "$CONFIG_TEMPLATE" > "$temp_additions"
     fi
-    
+
     # Define start and end markers
     START_MARKER="# === START: Randy's Development Environment Configuration ==="
     END_MARKER="# === END: Randy's Development Environment Configuration ==="
-    
-    # Check if shell config exists, if not create it
+
     if [ ! -f "$SHELL_CONFIG_FILE" ]; then
         print_info "Creating new $CONFIG_NAME file"
         touch "$SHELL_CONFIG_FILE"
     fi
-    
+
     # Check if our configuration section already exists
     if grep -q "$START_MARKER" "$SHELL_CONFIG_FILE" 2>/dev/null; then
         print_warning "Randy's configuration section found in $CONFIG_NAME"
-        echo "Do you want to remove the existing section and add the latest configuration? (y/n)"
+        echo "Do you want to replace it with the latest? (y/n)"
         read -r update_choice
         if [ "$update_choice" = "y" ] || [ "$update_choice" = "Y" ]; then
-            # Create backup first
             cp "$SHELL_CONFIG_FILE" "$SHELL_CONFIG_FILE.backup-$(date +%Y%m%d-%H%M%S)"
-            print_info "Backup created: $SHELL_CONFIG_FILE.backup-$(date +%Y%m%d-%H%M%S)"
-            
-            # Remove existing Randy's section (between markers) 
-            # Escape special characters in markers for sed
             START_ESCAPED=$(printf '%s\n' "$START_MARKER" | sed 's/[[\.*^$()+?{|]/\\&/g')
             END_ESCAPED=$(printf '%s\n' "$END_MARKER" | sed 's/[[\.*^$()+?{|]/\\&/g')
             sed "/$START_ESCAPED/,/$END_ESCAPED/d" "$SHELL_CONFIG_FILE" > "$SHELL_CONFIG_FILE.tmp"
             mv "$SHELL_CONFIG_FILE.tmp" "$SHELL_CONFIG_FILE"
-            print_info "Removed existing Randy's configuration section"
         else
-            print_info "Keeping existing shell configurations"
+            print_info "Keeping existing configuration"
             rm "$temp_additions"
             return
         fi
     fi
-    
-    # Check for conflicts with existing aliases/functions (outside our markers)
-    check_existing_configurations "$SHELL_CONFIG_FILE"
-    
-    # Add our configurations with markers
+
     echo -e "\n$START_MARKER" >> "$SHELL_CONFIG_FILE"
     cat "$temp_additions" >> "$SHELL_CONFIG_FILE"
     echo -e "$END_MARKER" >> "$SHELL_CONFIG_FILE"
-    
-    # Replace any remaining placeholders in the entire file (for existing content outside markers)
-    if [ -n "$VENV_PATH" ]; then
-        sed -i.tmp -e "s|VENV_PATH_PLACEHOLDER|$VENV_PATH|g" "$SHELL_CONFIG_FILE"
-        rm "$SHELL_CONFIG_FILE.tmp" 2>/dev/null
-        print_info "Replaced VENV_PATH_PLACEHOLDER with $VENV_PATH throughout $CONFIG_NAME"
-    fi
-    
-    if grep -q "$START_MARKER" "$SHELL_CONFIG_FILE" 2>/dev/null && [ -f "$SHELL_CONFIG_FILE.backup-$(date +%Y%m%d-%H%M%S)" ] 2>/dev/null; then
-        print_success "Shell configurations updated in $CONFIG_NAME"
-    else
-        print_success "Shell configurations added to $CONFIG_NAME"
-    fi
-    
+
+    print_success "Bash configuration updated"
     rm "$temp_additions"
 }
 
