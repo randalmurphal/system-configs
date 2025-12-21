@@ -23,9 +23,6 @@ CLAUDE_INSTALL="${CLAUDE_INSTALL:-true}"
 # Clone config from GitHub (format: "username/repo", empty = use local/generated)
 CLAUDE_CONFIG_REPO="${CLAUDE_CONFIG_REPO:-}"
 
-# Default model
-CLAUDE_DEFAULT_MODEL="${CLAUDE_DEFAULT_MODEL:-sonnet}"
-
 # Setup startup hooks for environment
 CLAUDE_SETUP_HOOKS="${CLAUDE_SETUP_HOOKS:-true}"
 
@@ -144,7 +141,6 @@ create_claude_settings() {
     # Build settings with env, hooks, and permissions
     cat > "$settings_file" << EOF
 {
-  "model": "$CLAUDE_DEFAULT_MODEL",
   "env": {
     "PATH": "$HOME/.local/bin:$HOME/.cargo/bin:$HOME/go/bin:\$PATH",
     "GOPATH": "$HOME/go",
