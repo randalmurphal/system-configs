@@ -303,10 +303,6 @@ local keybind_defs = {
   { key = 'r', mods = 'LEADER', action = act.ReloadConfiguration, desc = 'Reload config', group = 'other' },
   { key = '\\', mods = 'LEADER|SHIFT', action = act.ShowDebugOverlay, desc = 'Debug overlay', group = 'other' },
 
-  -- Enter key variants (send newline)
-  { key = 'Enter', mods = 'CTRL', action = act.SendKey { key = 'Enter' }, desc = 'Newline', group = 'other' },
-  { key = 'Enter', mods = 'SHIFT', action = act.SendKey { key = 'Enter' }, desc = 'Newline', group = 'other' },
-
   -- Quick scroll to bottom
   { key = 'PageDown', mods = 'CTRL', action = act.ScrollToBottom, desc = 'Scroll to bottom', group = 'scrollback' },
 }
@@ -345,7 +341,11 @@ local function format_keybind(mods, key)
 end
 
 -- Build config.keys from definitions
-config.keys = {}
+config.keys = {
+  -- Shift/Ctrl+Enter: send literal newline (useful for Claude Code multi-line input)
+  { key = 'Enter', mods = 'SHIFT', action = act.SendString '\n' },
+  { key = 'Enter', mods = 'CTRL', action = act.SendString '\n' },
+}
 for _, kb in ipairs(keybind_defs) do
   table.insert(config.keys, { key = kb.key, mods = kb.mods, action = kb.action })
 end

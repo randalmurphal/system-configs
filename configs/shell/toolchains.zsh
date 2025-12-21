@@ -6,6 +6,12 @@
 # ========================================
 # mise manages: node, python, go, rust, ruby, java, etc.
 if command -v mise &> /dev/null; then
+    # Clean up stale hooks from previous mise versions (prevents bash/zsh conflicts)
+    # Old versions used _mise_hook, new versions use _mise_hook_precmd/_mise_hook_chpwd
+    precmd_functions=( ${precmd_functions:#_mise_hook} )
+    chpwd_functions=( ${chpwd_functions:#_mise_hook} )
+    (( $+functions[_mise_hook] )) && unset -f _mise_hook
+
     eval "$(mise activate zsh)"
 fi
 
