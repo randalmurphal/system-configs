@@ -14,8 +14,17 @@ source "$SCRIPT_DIR/../lib/symlinks.sh"
 # CONFIGURATION - VERSION SPECIFICATIONS
 # =============================================================================
 
-# Python version (use "latest" for latest stable)
-LANG_PYTHON_VERSION="${LANG_PYTHON_VERSION:-3.12}"
+# Python versions (space-separated, first is global default)
+# Examples: "3.12" "3.12.8 3.11 3.14" "3.12 3.11.9 3.10"
+LANG_PYTHON_VERSIONS="${LANG_PYTHON_VERSIONS:-${LANG_PYTHON_VERSION:-3.12}}"
+
+# Virtual environment settings
+# Default venv directory name (relative to project root)
+LANG_VENV_DIR="${LANG_VENV_DIR:-.venv}"
+
+# Additional venv paths for Claude to search (space-separated, relative paths)
+# These are added to PATH in Claude's session
+LANG_VENV_PATHS="${LANG_VENV_PATHS:-.venv venv .virtualenv}"
 
 # Node.js version (use "lts" for LTS, "latest" for latest)
 LANG_NODE_VERSION="${LANG_NODE_VERSION:-lts}"
@@ -97,21 +106,109 @@ configure_mise_shell() {
 # =============================================================================
 
 install_python() {
-    section "Installing Python $LANG_PYTHON_VERSION"
+    # Convert to array
+    local versions=($LANG_PYTHON_VERSIONS)
+    local default_version="${versions[0]}"
+
+    section "Installing Python (${#versions[@]} version(s))"
 
     # Install build dependencies first
     install_python_build_deps
 
-    log_info "Installing Python $LANG_PYTHON_VERSION via mise..."
-    mise use --global "python@$LANG_PYTHON_VERSION"
+    # Install each version
+    for version in "${versions[@]}"; do
+        log_info "Installing Python $version via mise..."
+        mise install "python@$version" || {
+            log_warn "Failed to install Python $version"
+            continue
+        }
+        log_success "Python $version installed"
+    done
+
+    # Set the first version as global default
+    log_info "Setting Python $default_version as global default..."
+    mise use --global "python@$default_version"
 
     # Verify installation
     local installed_version
     installed_version="$(mise exec -- python --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')"
-    log_success "Python $installed_version installed"
+    log_success "Python $installed_version set as default"
 
-    # Install global packages
+    # Show all installed versions
+    log_info "Installed Python versions:"
+    mise list python 2>/dev/null | grep -E "^\s*python" || true
+
+    # Install global packages (on default version)
     install_pip_globals
+
+    # Install venv helper script
+    install_venv_helper
+}
+
+install_venv_helper() {
+    log_info "Installing venv helper script..."
+
+    local helper_script="$HOME/.local/bin/mkvenv"
+    ensure_dir "$(dirname "$helper_script")"
+
+    cat > "$helper_script" << 'VENVEOF'
+#!/usr/bin/env bash
+# mkvenv - Create Python virtual environment with mise-managed Python
+# Usage: mkvenv [python_version] [venv_dir]
+#   mkvenv              # Use default Python, create .venv
+#   mkvenv 3.11         # Use Python 3.11, create .venv
+#   mkvenv 3.12 myenv   # Use Python 3.12, create ./myenv
+#   mkvenv . myenv      # Use default Python, create ./myenv
+
+set -euo pipefail
+
+PYTHON_VERSION="${1:-.}"
+VENV_DIR="${2:-.venv}"
+
+# Expand "." to default (no version specification)
+if [[ "$PYTHON_VERSION" == "." ]]; then
+    PYTHON_VERSION=""
+fi
+
+# Check if mise is available
+if ! command -v mise &>/dev/null; then
+    echo "Error: mise not found. Install via: curl https://mise.run | sh"
+    exit 1
+fi
+
+# Get Python executable
+if [[ -n "$PYTHON_VERSION" ]]; then
+    # Check if version is installed
+    if ! mise list python 2>/dev/null | grep -q "$PYTHON_VERSION"; then
+        echo "Python $PYTHON_VERSION not installed. Installing..."
+        mise install "python@$PYTHON_VERSION"
+    fi
+    PYTHON_CMD="mise exec python@$PYTHON_VERSION -- python"
+else
+    PYTHON_CMD="mise exec -- python"
+fi
+
+# Get actual version for display
+ACTUAL_VERSION=$($PYTHON_CMD --version 2>&1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+
+echo "Creating virtual environment..."
+echo "  Python: $ACTUAL_VERSION"
+echo "  Location: $VENV_DIR"
+
+# Create venv
+$PYTHON_CMD -m venv "$VENV_DIR"
+
+# Upgrade pip in venv
+"$VENV_DIR/bin/pip" install --upgrade pip --quiet
+
+echo ""
+echo "Virtual environment created!"
+echo "Activate with: source $VENV_DIR/bin/activate"
+VENVEOF
+
+    chmod +x "$helper_script"
+    log_success "Installed mkvenv helper at $helper_script"
+    log_info "Usage: mkvenv [python_version] [venv_dir]"
 }
 
 install_python_build_deps() {

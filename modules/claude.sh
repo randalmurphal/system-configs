@@ -26,6 +26,10 @@ CLAUDE_CONFIG_REPO="${CLAUDE_CONFIG_REPO:-}"
 # Setup startup hooks for environment
 CLAUDE_SETUP_HOOKS="${CLAUDE_SETUP_HOOKS:-true}"
 
+# Virtual environment paths Claude should look for (space-separated, relative paths)
+# These are added to PATH for each bash command
+CLAUDE_VENV_PATHS="${CLAUDE_VENV_PATHS:-.venv venv .virtualenv}"
+
 # =============================================================================
 # CLAUDE CODE INSTALLATION
 # =============================================================================
@@ -334,8 +338,21 @@ fi
 # Ensure local bin is in PATH
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$CLAUDE_ENV_FILE"
 
-# Project-local bins
-echo 'export PATH="./node_modules/.bin:./venv/bin:./.venv/bin:$PATH"' >> "$CLAUDE_ENV_FILE"
+# Project-local bins (node_modules)
+echo 'export PATH="./node_modules/.bin:$PATH"' >> "$CLAUDE_ENV_FILE"
+
+# Python virtual environments
+HOOKEOF
+
+    # Add configurable venv paths
+    local venv_path_additions=""
+    for venv_path in $CLAUDE_VENV_PATHS; do
+        venv_path_additions+="./${venv_path}/bin:"
+    done
+
+    cat >> "$hooks_script" << HOOKEOF
+# Configurable venv paths: $CLAUDE_VENV_PATHS
+echo 'export PATH="${venv_path_additions}\$PATH"' >> "\$CLAUDE_ENV_FILE"
 
 exit 0
 HOOKEOF
