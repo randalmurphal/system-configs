@@ -554,11 +554,15 @@ config.visual_bell = {
 -- STATUS BAR (right side, like your tmux)
 -- =============================================================================
 
+-- Detect if we're on Windows (reading from WSL) or native Linux
+local is_windows = wezterm.target_triple:find('windows') ~= nil
+
 -- Background poller for sysinfo (8Hz refresh from daemon)
 local function update_sysinfo()
-  local success, stdout = wezterm.run_child_process({
-    'wsl', '-e', 'cat', '/tmp/sysinfo'
-  })
+  local cmd = is_windows
+    and { 'wsl', '-e', 'cat', '/tmp/sysinfo' }
+    or { 'cat', '/tmp/sysinfo' }
+  local success, stdout = wezterm.run_child_process(cmd)
   if success and stdout then
     local content = stdout:gsub('%s+$', '')
     -- Split on double pipe: network || cpu/ram
