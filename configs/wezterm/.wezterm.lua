@@ -592,13 +592,14 @@ end)
 -- SESSION PERSISTENCE (resurrect plugin)
 -- =============================================================================
 
--- Auto-save every 5 minutes
-resurrect.state_manager.periodic_save({
-  interval_seconds = 300,
-  save_workspaces = true,
-  save_windows = true,
-  save_tabs = true,
-})
+-- Auto-save disabled (was causing scroll issues)
+-- Uncomment to re-enable periodic session saving
+-- resurrect.state_manager.periodic_save({
+--   interval_seconds = 300,
+--   save_workspaces = true,
+--   save_windows = true,
+--   save_tabs = true,
+-- })
 
 -- Restore last session on startup
 wezterm.on("gui-startup", resurrect.state_manager.resurrect_on_gui_startup)
