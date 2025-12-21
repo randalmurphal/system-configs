@@ -1,7 +1,7 @@
 [Desktop Entry]
 Name=Rofi Launcher
 Comment=Application launcher
-Exec=/home/randy/.local/bin/rofi-toggle
+Exec=sh -c '"$HOME/.local/bin/rofi-toggle"'
 Icon=application-menu
 Terminal=false
 Type=Application

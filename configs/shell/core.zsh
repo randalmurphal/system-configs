@@ -38,7 +38,12 @@ elif [ -f "/usr/local/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh"
     ZSH_HIGHLIGHT_BREW=true
 fi
 
-source $ZSH/oh-my-zsh.sh
+# Source oh-my-zsh if installed
+if [[ -f "$ZSH/oh-my-zsh.sh" ]]; then
+    source "$ZSH/oh-my-zsh.sh"
+else
+    echo "[WARN] oh-my-zsh not found at $ZSH. Run 'bootstrap.sh -m shell' to install." >&2
+fi
 
 # Source brew-installed zsh-syntax-highlighting if needed (must be after oh-my-zsh)
 if [ "$ZSH_HIGHLIGHT_BREW" = true ]; then

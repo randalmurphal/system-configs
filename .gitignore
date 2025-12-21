@@ -1,3 +1,15 @@
 node_modules/
 package-lock.json
 package.json
+
+# User-specific options (use options.example.conf as template)
+options.conf
+
+# Backup files
+*.backup
+*.backup.*
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
