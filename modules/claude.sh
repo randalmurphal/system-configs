@@ -23,12 +23,8 @@ CLAUDE_INSTALL="${CLAUDE_INSTALL:-true}"
 # Clone config from GitHub (format: "username/repo", empty = use local/generated)
 CLAUDE_CONFIG_REPO="${CLAUDE_CONFIG_REPO:-}"
 
-# Model preferences
+# Default model
 CLAUDE_DEFAULT_MODEL="${CLAUDE_DEFAULT_MODEL:-sonnet}"
-
-# Auto-compact settings
-CLAUDE_AUTO_COMPACT="${CLAUDE_AUTO_COMPACT:-true}"
-CLAUDE_AUTO_COMPACT_THRESHOLD="${CLAUDE_AUTO_COMPACT_THRESHOLD:-95}"
 
 # Setup startup hooks for environment
 CLAUDE_SETUP_HOOKS="${CLAUDE_SETUP_HOOKS:-true}"
@@ -60,11 +56,15 @@ install_claude_code() {
         return 1
     fi
 
-    log_info "Installing Claude Code..."
+    log_info "Installing Claude Code via npm..."
     npm install -g @anthropic-ai/claude-code
 
     if cmd_exists claude; then
-        log_success "Claude Code installed"
+        log_success "Claude Code installed via npm"
+
+        # Install local binary for better performance
+        log_info "Installing local binary..."
+        claude install 2>/dev/null || log_warn "Local binary install skipped (run 'claude install' manually)"
     else
         log_error "Claude Code installation failed"
         return 1
@@ -141,15 +141,10 @@ create_claude_settings() {
 
     log_info "Creating Claude Code settings..."
 
-    # Determine mise path
-    local mise_path=""
-    if [[ -f "$HOME/.local/bin/mise" ]]; then
-        mise_path="$HOME/.local/bin"
-    fi
-
-    # Build env section with proper paths
+    # Build settings with env, hooks, and permissions
     cat > "$settings_file" << EOF
 {
+  "model": "$CLAUDE_DEFAULT_MODEL",
   "env": {
     "PATH": "$HOME/.local/bin:$HOME/.cargo/bin:$HOME/go/bin:\$PATH",
     "GOPATH": "$HOME/go",
@@ -227,23 +222,31 @@ create_claude_settings() {
       "Bash(yarn *)"
     ],
     "deny": [
-      "Read(.env)",
-      "Read(.env.*)",
-      "Read(**/secrets/**)",
-      "Read(**/*credential*)",
-      "Read(**/*secret*)"
+      "Bash(rm -rf /)",
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -rf $HOME)",
+      "Bash(rm -rf --no-preserve-root /)",
+      "Bash(sudo rm -rf /)",
+      "Bash(sudo rm -rf /*)",
+      "Bash(mkfs *)",
+      "Bash(mkfs.*)",
+      "Bash(dd if=* of=/dev/*)",
+      "Bash(dd of=/dev/*)",
+      "Bash(:(){ :|:& };:)",
+      "Bash(chmod -R 777 /)",
+      "Bash(chmod 777 /)",
+      "Bash(chown -R * /)",
+      "Bash(> /dev/sda)",
+      "Bash(cat /dev/zero > *)",
+      "Bash(cat /dev/urandom > *)",
+      "Bash(shutdown *)",
+      "Bash(reboot)",
+      "Bash(init 0)",
+      "Bash(init 6)",
+      "Bash(halt)",
+      "Bash(poweroff)"
     ]
-  },
-  "preferences": {
-    "model": "$CLAUDE_DEFAULT_MODEL",
-    "theme": "dark"
-  },
-  "autoCompact": {
-    "enabled": $CLAUDE_AUTO_COMPACT,
-    "threshold": $CLAUDE_AUTO_COMPACT_THRESHOLD
-  },
-  "telemetry": {
-    "enabled": false
   }
 }
 EOF
@@ -259,13 +262,9 @@ merge_claude_settings() {
         local tmp_file
         tmp_file="$(mktemp)"
 
-        # Merge autoCompact and add env if missing
-        jq --arg enabled "$CLAUDE_AUTO_COMPACT" \
-           --argjson threshold "$CLAUDE_AUTO_COMPACT_THRESHOLD" \
-           --arg home "$HOME" \
-           '.autoCompact.enabled = ($enabled == "true") |
-            .autoCompact.threshold = $threshold |
-            .env.PATH //= ($home + "/.local/bin:" + $home + "/.cargo/bin:" + $home + "/go/bin:$PATH") |
+        # Add env paths if missing
+        jq --arg home "$HOME" \
+           '.env.PATH //= ($home + "/.local/bin:" + $home + "/.cargo/bin:" + $home + "/go/bin:$PATH") |
             .env.GOPATH //= ($home + "/go") |
             .env.RUST_BACKTRACE //= "1"' \
            "$settings_file" > "$tmp_file" && mv "$tmp_file" "$settings_file"
