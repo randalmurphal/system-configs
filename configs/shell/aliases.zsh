@@ -33,10 +33,6 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
         alias cat='bat'
     fi
 
-    if command -v rg &> /dev/null; then
-        alias grep='rg'
-    fi
-
     if command -v gdu &> /dev/null; then
         alias du='gdu'
         alias ncdu='gdu'
@@ -54,10 +50,6 @@ else
         alias bat='batcat'
     elif command -v bat &> /dev/null; then
         alias cat='bat'
-    fi
-
-    if command -v rg &> /dev/null; then
-        alias grep='rg'
     fi
 
     if command -v gdu &> /dev/null; then
