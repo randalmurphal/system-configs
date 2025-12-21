@@ -302,6 +302,10 @@ local keybind_defs = {
   -- Other
   { key = 'r', mods = 'LEADER', action = act.ReloadConfiguration, desc = 'Reload config', group = 'other' },
   { key = '\\', mods = 'LEADER|SHIFT', action = act.ShowDebugOverlay, desc = 'Debug overlay', group = 'other' },
+
+  -- Enter key variants (send newline)
+  { key = 'Enter', mods = 'CTRL', action = act.SendKey { key = 'Enter' }, desc = 'Newline', group = 'other' },
+  { key = 'Enter', mods = 'SHIFT', action = act.SendKey { key = 'Enter' }, desc = 'Newline', group = 'other' },
 }
 
 -- Copy mode keybindings (separate table, also with descriptions for help)
