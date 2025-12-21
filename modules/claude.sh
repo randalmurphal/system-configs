@@ -316,10 +316,11 @@ if [[ -z "$CLAUDE_ENV_FILE" ]]; then
 fi
 
 # mise (polyglot version manager) - preferred
+# NOTE: Claude Code runs zsh, not bash, so we activate for zsh
 if command -v mise &>/dev/null; then
-    echo 'eval "$(mise activate bash)"' >> "$CLAUDE_ENV_FILE"
+    echo 'eval "$(mise activate zsh)"' >> "$CLAUDE_ENV_FILE"
 elif [[ -f "$HOME/.local/bin/mise" ]]; then
-    echo 'eval "$($HOME/.local/bin/mise activate bash)"' >> "$CLAUDE_ENV_FILE"
+    echo 'eval "$($HOME/.local/bin/mise activate zsh)"' >> "$CLAUDE_ENV_FILE"
 fi
 
 # Rust/Cargo
