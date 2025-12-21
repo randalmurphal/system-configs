@@ -306,6 +306,9 @@ local keybind_defs = {
   -- Enter key variants (send newline)
   { key = 'Enter', mods = 'CTRL', action = act.SendKey { key = 'Enter' }, desc = 'Newline', group = 'other' },
   { key = 'Enter', mods = 'SHIFT', action = act.SendKey { key = 'Enter' }, desc = 'Newline', group = 'other' },
+
+  -- Quick scroll to bottom
+  { key = 'PageDown', mods = 'CTRL', action = act.ScrollToBottom, desc = 'Scroll to bottom', group = 'scrollback' },
 }
 
 -- Copy mode keybindings (separate table, also with descriptions for help)
