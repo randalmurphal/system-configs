@@ -1,8 +1,13 @@
 # Randy's ZSH Configuration - Portable across Linux/macOS
 # This file sources modular configs from the same directory
 
-# Get the directory where this script lives
-ZSHRC_DIR="${0:A:h}"
+# Get the directory where this script lives (resolve symlink)
+if [[ -L "$HOME/.zshrc" ]]; then
+    # Follow symlink to get real location
+    ZSHRC_DIR="$(dirname "$(readlink -f "$HOME/.zshrc")")"
+else
+    ZSHRC_DIR="${0:A:h}"
+fi
 
 # Source modular configs in order
 source "$ZSHRC_DIR/core.zsh"        # oh-my-zsh, prompt, history, completions
