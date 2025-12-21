@@ -15,7 +15,7 @@ local resurrect = wezterm.plugin.require("https://github.com/MLFlexer/resurrect.
 
 -- Default to WSL on Windows, native shell on Linux
 if wezterm.target_triple:find('windows') then
-  config.default_domain = 'WSL:Ubuntu-24.04'
+  config.default_domain = 'WSL:Ubuntu'
 end
 
 -- Performance
