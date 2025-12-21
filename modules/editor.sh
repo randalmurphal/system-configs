@@ -110,22 +110,30 @@ install_neovim_appimage() {
 
     ensure_dir "$install_dir"
 
-    # Check architecture
+    # Check architecture and set appropriate AppImage filename
     local arch
     arch="$(uname -m)"
+    local appimage_name
 
-    if [[ "$arch" == "aarch64" || "$arch" == "arm64" ]]; then
-        log_warn "AppImage not available for ARM64"
-        log_info "Trying to build from source or use package manager..."
-        pkg_install neovim
-        return
-    fi
+    case "$arch" in
+        x86_64|amd64)
+            appimage_name="nvim-linux-x86_64.appimage"
+            ;;
+        aarch64|arm64)
+            appimage_name="nvim-linux-arm64.appimage"
+            ;;
+        *)
+            log_warn "Unknown architecture: $arch, trying package manager..."
+            pkg_install neovim
+            return
+            ;;
+    esac
 
     # Remove old installation
     rm -rf "$extract_dir" 2>/dev/null || true
     rm -f "$nvim_path" 2>/dev/null || true
 
-    local appimage_url="https://github.com/neovim/neovim/releases/latest/download/nvim.appimage"
+    local appimage_url="https://github.com/neovim/neovim/releases/latest/download/${appimage_name}"
 
     log_info "Downloading Neovim AppImage..."
     download "$appimage_url" "$nvim_path"
