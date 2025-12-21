@@ -66,10 +66,32 @@ install_claude_code() {
         # Install local binary for better performance
         log_info "Installing local binary..."
         claude install 2>/dev/null || log_warn "Local binary install skipped (run 'claude install' manually)"
+
+        # Add alias to use local binary (faster startup)
+        add_claude_alias
     else
         log_error "Claude Code installation failed"
         return 1
     fi
+}
+
+add_claude_alias() {
+    local zshrc="$HOME/.zshrc"
+    local alias_line='alias claude="$HOME/.local/bin/claude"'
+
+    # Check if alias already exists
+    if grep -q 'alias claude=' "$zshrc" 2>/dev/null; then
+        log_skip "Claude alias already in .zshrc"
+        return 0
+    fi
+
+    # Add alias to zshrc
+    cat >> "$zshrc" << 'EOF'
+
+# Claude Code - use local binary for better performance
+alias claude="$HOME/.local/bin/claude"
+EOF
+    log_success "Added claude alias to .zshrc"
 }
 
 # =============================================================================
