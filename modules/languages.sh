@@ -412,8 +412,8 @@ auto_install = true
 # Always use the latest version of tools
 legacy_version_file = true
 
-# Show status message when switching versions
-status = { show_tools = true }
+# Don't show status message on shell start (quiet mode)
+status = { show_tools = false }
 
 # Experimental features
 experimental = false
