@@ -150,21 +150,62 @@ install_zinit() {
 # ZSH CONFIGURATION
 # =============================================================================
 
-link_zsh_config() {
-    section "Linking ZSH Configuration"
+copy_zsh_config() {
+    section "Copying ZSH Configuration"
 
-    local config_dir="$BOOTSTRAP_DIR/configs/shell"
+    local source_dir="$BOOTSTRAP_DIR/configs/shell"
+    local target_dir="$HOME/.config/zsh"
 
     # Check if configs exist
-    if [[ ! -d "$config_dir" ]]; then
-        log_error "Shell configs not found at $config_dir"
+    if [[ ! -d "$source_dir" ]]; then
+        log_error "Shell configs not found at $source_dir"
         return 1
     fi
 
-    # Main .zshrc links to our modular config
-    safe_symlink "$config_dir/.zshrc" "$HOME/.zshrc"
+    # Create target directory
+    ensure_dir "$target_dir"
 
-    log_success "ZSH configuration linked"
+    # Copy modular config files (won't overwrite existing)
+    safe_copy "$source_dir/core.zsh" "$target_dir/core.zsh"
+    safe_copy "$source_dir/aliases.zsh" "$target_dir/aliases.zsh"
+    safe_copy "$source_dir/functions.zsh" "$target_dir/functions.zsh"
+    safe_copy "$source_dir/path.zsh" "$target_dir/path.zsh"
+    safe_copy "$source_dir/toolchains.zsh" "$target_dir/toolchains.zsh"
+
+    # Create ~/.zshrc if it doesn't exist
+    if [[ ! -e "$HOME/.zshrc" ]] || [[ -L "$HOME/.zshrc" ]]; then
+        # Remove symlink if present
+        [[ -L "$HOME/.zshrc" ]] && rm "$HOME/.zshrc"
+
+        cat > "$HOME/.zshrc" << 'ZSHRCEOF'
+# ZSH Configuration - Sources modular configs from ~/.config/zsh/
+# Feel free to customize this file and add your own settings below
+
+ZSHRC_DIR="$HOME/.config/zsh"
+
+# Source modular configs
+[[ -f "$ZSHRC_DIR/core.zsh" ]] && source "$ZSHRC_DIR/core.zsh"
+[[ -f "$ZSHRC_DIR/aliases.zsh" ]] && source "$ZSHRC_DIR/aliases.zsh"
+[[ -f "$ZSHRC_DIR/functions.zsh" ]] && source "$ZSHRC_DIR/functions.zsh"
+[[ -f "$ZSHRC_DIR/path.zsh" ]] && source "$ZSHRC_DIR/path.zsh"
+[[ -f "$ZSHRC_DIR/toolchains.zsh" ]] && source "$ZSHRC_DIR/toolchains.zsh"
+
+# =============================================================================
+# YOUR CUSTOM SETTINGS BELOW
+# =============================================================================
+
+ZSHRCEOF
+        log_success "Created ~/.zshrc"
+    else
+        log_skip "~/.zshrc already exists (not overwriting)"
+    fi
+
+    log_success "ZSH configuration copied to $target_dir"
+}
+
+# Alias for backwards compatibility
+link_zsh_config() {
+    copy_zsh_config
 }
 
 # =============================================================================

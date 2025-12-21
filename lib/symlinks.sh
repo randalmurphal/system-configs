@@ -15,6 +15,74 @@ BACKUP_DIR="${BACKUP_DIR:-$HOME/.config-backups}"
 BACKUP_TIMESTAMP="${BACKUP_TIMESTAMP:-$(date +%Y%m%d_%H%M%S)}"
 
 # =============================================================================
+# COPY OPERATIONS (no overwrite)
+# =============================================================================
+
+# Copy a file only if destination doesn't exist
+# Usage: safe_copy <source> <target>
+safe_copy() {
+    local source="$1"
+    local target="$2"
+
+    # Expand ~ in target
+    target="${target/#\~/$HOME}"
+
+    # Check if source exists
+    if [[ ! -e "$source" ]]; then
+        log_error "Source does not exist: $source"
+        return 1
+    fi
+
+    # Ensure parent directory exists
+    local target_dir
+    target_dir="$(dirname "$target")"
+    ensure_dir "$target_dir"
+
+    # Skip if target already exists (don't overwrite)
+    if [[ -e "$target" ]] && [[ ! -L "$target" ]]; then
+        log_skip "Already exists (not overwriting): $target"
+        return 0
+    fi
+
+    # If target is a symlink, remove it first
+    if [[ -L "$target" ]]; then
+        log_info "Replacing symlink with copy: $target"
+        rm "$target"
+    fi
+
+    # Copy the file/directory
+    if [[ -d "$source" ]]; then
+        cp -r "$source" "$target"
+    else
+        cp "$source" "$target"
+    fi
+    log_success "Copied: $target"
+}
+
+# Copy all files from source dir to target dir (no overwrite)
+# Usage: safe_copy_dir <source_dir> <target_dir> [pattern]
+safe_copy_dir() {
+    local source_dir="$1"
+    local target_dir="$2"
+    local pattern="${3:-*}"
+
+    if [[ ! -d "$source_dir" ]]; then
+        log_error "Source directory does not exist: $source_dir"
+        return 1
+    fi
+
+    ensure_dir "$target_dir"
+
+    for file in "$source_dir"/$pattern; do
+        if [[ -e "$file" ]]; then
+            local basename
+            basename="$(basename "$file")"
+            safe_copy "$file" "$target_dir/$basename"
+        fi
+    done
+}
+
+# =============================================================================
 # SYMLINK OPERATIONS
 # =============================================================================
 
