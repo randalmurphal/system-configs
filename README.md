@@ -1,174 +1,138 @@
-# Randy's System Configuration
+# System Configs Bootstrap
 
-Personal development environment configurations for Linux/macOS systems.
+Modular, idempotent development environment bootstrap for WSL/Linux/macOS.
 
-## Quick Setup (New System)
+## Quick Start
 
 ```bash
-# Clone this repository
-git clone https://github.com/randalmurphal/system-configs.git
-cd system-configs
+# Clone the repository
+git clone git@github.com:randalmurphal/system-configs.git ~/repos/system-configs
+cd ~/repos/system-configs
 
-# Run the automated setup script
-./setup-system.sh
+# Configure (optional - has sensible defaults)
+cp options.example.conf options.conf
+# Edit options.conf to customize
+
+# Run bootstrap
+./bootstrap.sh --all    # Install everything
+# Or: ./bootstrap.sh    # Interactive menu
 ```
 
-The setup script will prompt you to select which components to install:
-- **System packages** - git, tmux, neovim, modern CLI tools (bat, ripgrep, fzf, etc.)
-- **SSH key** - Create or use existing SSH key for GitHub
-- **Git config** - Global git user settings
-- **Shell config** - Bash or Zsh with oh-my-zsh
-- **Tmux** - Terminal multiplexer with custom theme
-- **Neovim** - Full IDE-like configuration (cloned from separate repo)
-- **Nerd Font** - Hack Nerd Font for terminal icons
+## What Gets Installed
 
-All components are optional and can be skipped.
+| Module | Components |
+|--------|------------|
+| **shell** | ZSH, oh-my-zsh, plugins (autosuggestions, syntax-highlighting) |
+| **terminal** | tmux, TPM (plugin manager), WezTerm config |
+| **editor** | Neovim (latest), config (LazyVim/custom), Nerd Fonts |
+| **languages** | mise (version manager), Python 3.12, Node.js LTS, Go, Rust |
+| **tools** | bat, eza, fd, ripgrep, fzf, zoxide, delta, lazygit, gh |
+| **claude** | Claude Code CLI, settings, MCP servers |
+| **wsl** | WSL optimizations, clipboard, Windows interop (WSL only) |
 
-## Neovim Configuration
+## Usage
 
-The Neovim configuration lives in its own repository:
-- **Default repo**: `git@github.com:randalmurphal/neovim-config.git`
-- **Destination**: `~/.config/nvim`
-
-Features:
-- Kickstart.nvim-based with lazy.nvim plugin manager
-- Dark purple theme matching tmux/Ghostty
-- LSP support: Python (pyright + ruff), Rust, Go, TypeScript
-- Treesitter syntax highlighting
-- Telescope fuzzy finder
-- nvim-tree file explorer
-- Bufferline tabs
-- Lualine statusline
-- Auto-save, persistence, git integration
-
-The setup script will clone this repo automatically, or you can do it manually:
 ```bash
-git clone git@github.com:randalmurphal/neovim-config.git ~/.config/nvim
+./bootstrap.sh              # Interactive menu
+./bootstrap.sh --all        # Install everything
+./bootstrap.sh -m editor    # Install specific module
+./bootstrap.sh --list       # List available modules
+./bootstrap.sh --update     # Update existing installation
 ```
 
-## Manual Setup
+## Configuration
 
-### Tmux Configuration
+Copy `options.example.conf` to `options.conf` and customize:
+
 ```bash
-# Copy tmux configuration
-cp tmux_configs/.tmux.conf ~/.tmux.conf
+# Use your own neovim config
+EDITOR_NVIM_DISTRO="github"
+EDITOR_NVIM_REPO="yourusername/neovim-config"
 
-# Install Tmux Plugin Manager
-git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
+# Python version
+LANG_PYTHON_VERSION="3.12"
 
-# Start tmux and install plugins
-tmux
-# Press Ctrl+Space + I to install plugins
+# Shell plugin manager: "oh-my-zsh" or "zinit"
+SHELL_PLUGIN_MANAGER="oh-my-zsh"
 ```
 
-### Shell Configuration
-```bash
-# For Bash
-cat bash_configs/.bashrc >> ~/.bashrc
-source ~/.bashrc
+See `options.example.conf` for all available options.
 
-# For Zsh
-cat zsh_configs/.zshrc >> ~/.zshrc
-source ~/.zshrc
-```
+## Platform Support
 
-### Python Development
-```bash
-# Copy Python configurations
-cp ruff.toml ~/.config/ruff/pyproject.toml  # or set RUFF_CONFIG env var
-cp pyrightconfig.json ~/your-project/
-
-# Install Python tools
-pip install ruff black isort pyright
-```
-
-## Key Features
-
-### Tmux (prefix: Ctrl+Space)
-
-| Keybinding | Action |
-|------------|--------|
-| `v` / `V` | Split horizontal / vertical |
-| `Alt+hjkl` | Navigate panes |
-| `h` / `l` | Previous / next window |
-| `H/J/K/L` | Resize panes |
-| `n` | New window |
-| `s` | Save session (resurrect) |
-| `k` | Enter copy mode |
-| `f` | fzf file finder |
-| `/` | Open nvim in current dir |
-| `g` | Open lazygit |
-| `Q/W/E` | Cheat sheet popups |
-
-Theme: Dark purple (#9d4edd) matching nvim/Ghostty.
-
-### Neovim (leader: Space)
-
-| Keybinding | Action |
-|------------|--------|
-| `<leader>sf` | Search files |
-| `<leader>sg` | Search by grep |
-| `<leader>e` | Toggle file explorer |
-| `<leader>1-9` | Jump to buffer |
-| `Shift+h/l` | Previous/next buffer |
-| `<leader>x` | Close buffer |
-| `<leader>\\` | Vertical split |
-| `<leader>-` | Horizontal split |
-| `Ctrl+hjkl` | Navigate splits |
-| `grn` | Rename symbol |
-| `grd` | Go to definition |
-| `grr` | Find references |
-| `<leader>f` | Format buffer |
-| `<leader>gb` | Git blame line |
-
-### Modern CLI Tool Replacements
-- `bat` instead of `cat` (syntax highlighting)
-- `fd` instead of `find` (faster file search)
-- `rg` instead of `grep` (faster text search)
-- `htop` instead of `top` (better process viewer)
-- `zoxide` for smart directory jumping (`z <path>`)
+- **Ubuntu/Debian** (apt)
+- **Fedora/RHEL** (dnf)
+- **Arch/Manjaro** (pacman)
+- **openSUSE** (zypper)
+- **macOS** (Homebrew)
+- **WSL2** (apt + Windows integration)
 
 ## Repository Structure
 
 ```
 system-configs/
-├── bash_configs/
-│   └── .bashrc              # Bash aliases, functions, environment
-├── zsh_configs/
-│   └── .zshrc               # Zsh configuration with oh-my-zsh
-├── tmux_configs/
-│   ├── .tmux.conf           # Tmux configuration (purple theme)
-│   └── tmux-plugins.md      # Plugin installation guide
-├── linux/
-│   └── openSuse_plasma6/    # KDE Plasma configs (rofi, kwin)
-├── ruff.toml                # Python linting configuration
-├── pyrightconfig.json       # Python type checking configuration
-├── cheat-*.txt              # Keybinding cheat sheets
-├── setup-system.sh          # Automated setup script
-└── README.md
+├── bootstrap.sh          # Main entry point
+├── options.example.conf  # Configuration template
+├── lib/                  # Shared libraries
+│   ├── common.sh         # Logging, OS detection, utilities
+│   ├── packages.sh       # Package manager abstraction
+│   └── symlinks.sh       # Safe symlink management
+├── modules/              # Installation modules
+│   ├── shell.sh          # ZSH + plugins
+│   ├── terminal.sh       # tmux + WezTerm
+│   ├── editor.sh         # Neovim
+│   ├── languages.sh      # mise + Python/Node/Go/Rust
+│   ├── tools.sh          # CLI tools
+│   ├── claude.sh         # Claude Code
+│   └── wsl.sh            # WSL optimizations
+├── configs/              # Dotfiles (symlinked to ~/)
+│   ├── shell/            # ZSH configuration
+│   ├── tmux/             # tmux configuration
+│   ├── wezterm/          # WezTerm + sysinfo daemon
+│   └── git/              # Git configuration
+└── linux/                # Platform-specific extras
+    └── openSuse_plasma6/ # KDE Plasma configs (optional)
 ```
 
-## Compatibility
+## Key Bindings
 
-Tested on:
-- Ubuntu/Debian (apt)
-- RHEL/CentOS/Fedora (yum/dnf)
-- Arch Linux (pacman)
-- openSUSE (zypper)
-- macOS (Homebrew)
+### Tmux (prefix: Ctrl+Space)
 
-The setup script automatically detects your package manager.
+| Key | Action |
+|-----|--------|
+| `v` / `V` | Split horizontal / vertical |
+| `Alt+hjkl` | Navigate panes |
+| `h` / `l` | Previous / next window |
+| `n` | New window |
+| `g` | Open lazygit |
+| `/` | Open nvim |
 
-## Environment Variables
+### Neovim (leader: Space)
 
-The setup adds these to your shell config:
-- `REPOS_PATH` - Your repositories directory
-- `RUFF_CONFIG` - Path to ruff.toml
-- `VENV_PATH` - Optional global Python venv
+| Key | Action |
+|-----|--------|
+| `<leader>sf` | Search files |
+| `<leader>sg` | Search by grep |
+| `<leader>e` | Toggle file explorer |
+| `<leader>f` | Format buffer |
+| `grn` | Rename symbol |
+| `grd` | Go to definition |
+
+## Modern CLI Tools
+
+After installation, these replacements are available:
+
+| Classic | Modern | Description |
+|---------|--------|-------------|
+| `cat` | `bat` | Syntax highlighting |
+| `ls` | `eza` | Better file listing |
+| `find` | `fd` | Faster file search |
+| `grep` | `rg` | Faster text search |
+| `cd` | `z` | Smart directory jumping (zoxide) |
 
 ## Notes
 
-- All configurations are non-destructive (backups created automatically)
-- Font installation may require terminal restart
-- Nvim plugins auto-install on first launch via lazy.nvim
-- SSH key setup includes GitHub instructions
+- All operations are **idempotent** - safe to run multiple times
+- Existing configs are **backed up** before overwriting
+- Neovim plugins **auto-install** on first launch
+- WSL changes require `wsl --shutdown` to take effect
