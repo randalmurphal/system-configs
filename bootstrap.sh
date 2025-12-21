@@ -132,31 +132,31 @@ run_module() {
 
     case "$module" in
         shell)
-            module_file="$SCRIPT_DIR/modules/shell.sh"
+            module_file="$BOOTSTRAP_DIR/modules/shell.sh"
             ;;
         terminal)
-            module_file="$SCRIPT_DIR/modules/terminal.sh"
+            module_file="$BOOTSTRAP_DIR/modules/terminal.sh"
             ;;
         editor)
-            module_file="$SCRIPT_DIR/modules/editor.sh"
+            module_file="$BOOTSTRAP_DIR/modules/editor.sh"
             ;;
         languages)
-            module_file="$SCRIPT_DIR/modules/languages.sh"
+            module_file="$BOOTSTRAP_DIR/modules/languages.sh"
             ;;
         tools)
-            module_file="$SCRIPT_DIR/modules/tools.sh"
+            module_file="$BOOTSTRAP_DIR/modules/tools.sh"
             ;;
         git)
-            module_file="$SCRIPT_DIR/modules/git.sh"
+            module_file="$BOOTSTRAP_DIR/modules/git.sh"
             ;;
         claude)
-            module_file="$SCRIPT_DIR/modules/claude.sh"
+            module_file="$BOOTSTRAP_DIR/modules/claude.sh"
             ;;
         wsl)
-            module_file="$SCRIPT_DIR/modules/wsl.sh"
+            module_file="$BOOTSTRAP_DIR/modules/wsl.sh"
             ;;
         opensuse-plasma)
-            module_file="$SCRIPT_DIR/modules/desktop/opensuse-plasma.sh"
+            module_file="$BOOTSTRAP_DIR/modules/desktop/opensuse-plasma.sh"
             ;;
         *)
             log_error "Unknown module: $module"
