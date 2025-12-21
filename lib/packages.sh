@@ -319,15 +319,8 @@ add_external_repo() {
 
     case "$repo_name" in
         lazygit)
-            case "$PKG_MANAGER" in
-                apt)
-                    # lazygit PPA
-                    if [[ ! -f /etc/apt/sources.list.d/lazygit.list ]]; then
-                        log_info "Adding lazygit repository..."
-                        sudo add-apt-repository -y ppa:lazygit-team/release
-                    fi
-                    ;;
-            esac
+            # lazygit PPA is broken on Ubuntu 24.04+, skip repo setup
+            # Will be installed from GitHub releases in tools.sh
             ;;
         eza)
             case "$PKG_MANAGER" in

@@ -241,16 +241,81 @@ install_lazygit() {
         return 0
     fi
 
-    # Add repo for apt-based systems
-    add_external_repo lazygit
-    pkg_update 2>/dev/null || true
+    case "$PKG_MANAGER" in
+        brew)
+            brew install lazygit
+            ;;
+        dnf)
+            sudo dnf install -y lazygit 2>/dev/null || install_lazygit_from_github
+            ;;
+        pacman)
+            sudo pacman -S --noconfirm lazygit
+            ;;
+        zypper)
+            sudo zypper install -y lazygit 2>/dev/null || install_lazygit_from_github
+            ;;
+        apt)
+            # PPA doesn't support Ubuntu 24.04+, use GitHub releases
+            install_lazygit_from_github
+            ;;
+        *)
+            install_lazygit_from_github
+            ;;
+    esac
+}
 
-    pkg_install lazygit
+install_lazygit_from_github() {
+    log_info "Installing lazygit from GitHub releases..."
 
-    # Fallback to go install
-    if ! cmd_exists lazygit && cmd_exists go; then
-        log_info "Installing lazygit via go..."
-        go install github.com/jesseduffield/lazygit@latest
+    local install_dir="$HOME/.local/bin"
+    ensure_dir "$install_dir"
+
+    # Detect architecture
+    local arch
+    arch="$(uname -m)"
+    local lazygit_arch
+    case "$arch" in
+        x86_64|amd64) lazygit_arch="x86_64" ;;
+        aarch64|arm64) lazygit_arch="arm64" ;;
+        *)
+            log_warn "Unknown architecture: $arch, trying go install..."
+            if cmd_exists go; then
+                go install github.com/jesseduffield/lazygit@latest
+            fi
+            return
+            ;;
+    esac
+
+    # Get latest version
+    local latest_version
+    latest_version=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": "v\K[^"]*')
+
+    if [[ -z "$latest_version" ]]; then
+        log_warn "Could not determine latest lazygit version, trying go install..."
+        if cmd_exists go; then
+            go install github.com/jesseduffield/lazygit@latest
+        fi
+        return
+    fi
+
+    local tarball="lazygit_${latest_version}_Linux_${lazygit_arch}.tar.gz"
+    local url="https://github.com/jesseduffield/lazygit/releases/latest/download/${tarball}"
+
+    local tmp_dir
+    tmp_dir="$(mktemp -d)"
+
+    if download "$url" "$tmp_dir/$tarball"; then
+        tar -xzf "$tmp_dir/$tarball" -C "$tmp_dir"
+        mv "$tmp_dir/lazygit" "$install_dir/lazygit"
+        chmod +x "$install_dir/lazygit"
+        rm -rf "$tmp_dir"
+        log_success "lazygit $latest_version installed to $install_dir"
+    else
+        rm -rf "$tmp_dir"
+        log_warn "Failed to download lazygit, trying go install..."
+        if cmd_exists go; then
+            go install github.com/jesseduffield/lazygit@latest
+        fi
     fi
 }
 
