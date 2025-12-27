@@ -171,39 +171,41 @@ create_claude_settings() {
         venv_bin="$venv_path/bin"
     fi
 
-    # Build minimal PATH - only essential directories
+    # Build PATH - include common binary locations (only if they exist)
+    # Order matters: user bins first, then language-specific, then system
     local path_parts=""
+
+    # User-level bins (highest priority)
     [[ -d "$HOME/.local/bin" ]] && path_parts="$HOME/.local/bin"
     [[ -n "$venv_bin" ]] && path_parts="${path_parts:+$path_parts:}$venv_bin"
+
+    # Language toolchains
     [[ -d "$HOME/.cargo/bin" ]] && path_parts="${path_parts:+$path_parts:}$HOME/.cargo/bin"
     [[ -d "$HOME/go/bin" ]] && path_parts="${path_parts:+$path_parts:}$HOME/go/bin"
+    [[ -d "$HOME/.npm-global/bin" ]] && path_parts="${path_parts:+$path_parts:}$HOME/.npm-global/bin"
 
-    # Minimal settings: PATH, venv, and venv activation hook
-    # NO aliases, NO fancy shell features, NO slow initializers
+    # Package managers (snap, flatpak)
+    [[ -d "/snap/bin" ]] && path_parts="${path_parts:+$path_parts:}/snap/bin"
+    [[ -d "$HOME/.local/share/flatpak/exports/bin" ]] && path_parts="${path_parts:+$path_parts:}$HOME/.local/share/flatpak/exports/bin"
+    [[ -d "/var/lib/flatpak/exports/bin" ]] && path_parts="${path_parts:+$path_parts:}/var/lib/flatpak/exports/bin"
+
+    # System paths (always include)
+    path_parts="${path_parts:+$path_parts:}/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+
+    # Minimal settings: just PATH and VIRTUAL_ENV
+    # NO hooks needed - VIRTUAL_ENV + PATH is sufficient for Python
+    # NO aliases, NO slow initializers
     cat > "$settings_file" << EOF
 {
   "env": {
-    "PATH": "${path_parts}:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"${venv_path:+,
+    "PATH": "${path_parts}"${venv_path:+,
     "VIRTUAL_ENV": "$venv_path"}
-  }${venv_path:+,
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo 'source $venv_path/bin/activate' >> \"\$CLAUDE_ENV_FILE\""
-          }
-        ]
-      }
-    ]
-  }}
+  }
 }
 EOF
 
     log_success "Claude Code settings created at $settings_file"
-    log_info "Minimal config: PATH + Python venv only (no aliases, no slow initializers)"
+    log_info "Minimal config: PATH + VIRTUAL_ENV only (no hooks, no aliases)"
 }
 
 merge_claude_settings() {
