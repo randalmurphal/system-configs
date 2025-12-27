@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # claude.sh - Claude Code CLI configuration and settings
-# Supports: Custom config from GitHub, startup hooks, multi-language environment
+#
+# DESIGN PRINCIPLE: Claude Code must start fast with a clean, minimal environment.
+# - Only PATH and Python venv activation
+# - NO aliases, NO slow initializers (mise, nvm, pyenv, etc.)
+# - NO fancy shell features that break in non-interactive mode
 
 set -euo pipefail
 
@@ -22,13 +26,6 @@ CLAUDE_INSTALL="${CLAUDE_INSTALL:-true}"
 
 # Clone config from GitHub (format: "username/repo", empty = use local/generated)
 CLAUDE_CONFIG_REPO="${CLAUDE_CONFIG_REPO:-}"
-
-# Setup startup hooks for environment
-CLAUDE_SETUP_HOOKS="${CLAUDE_SETUP_HOOKS:-true}"
-
-# Virtual environment paths Claude should look for (space-separated, relative paths)
-# These are added to PATH for each bash command
-CLAUDE_VENV_PATHS="${CLAUDE_VENV_PATHS:-.venv venv .virtualenv}"
 
 # =============================================================================
 # CLAUDE CODE INSTALLATION
@@ -160,238 +157,89 @@ configure_claude_settings() {
 
 create_claude_settings() {
     local settings_file="$1"
-    local hooks_script="$CLAUDE_CONFIG_DIR/hooks/setup-env.sh"
 
     log_info "Creating Claude Code settings..."
 
-    # Build settings with env, hooks, and permissions
+    # Detect Python venv path
+    local venv_path=""
+    local venv_bin=""
+    if [[ -d "$HOME/.venv/py312" ]]; then
+        venv_path="$HOME/.venv/py312"
+        venv_bin="$venv_path/bin"
+    elif [[ -d "$HOME/.venv/py311" ]]; then
+        venv_path="$HOME/.venv/py311"
+        venv_bin="$venv_path/bin"
+    fi
+
+    # Build minimal PATH - only essential directories
+    local path_parts=""
+    [[ -d "$HOME/.local/bin" ]] && path_parts="$HOME/.local/bin"
+    [[ -n "$venv_bin" ]] && path_parts="${path_parts:+$path_parts:}$venv_bin"
+    [[ -d "$HOME/.cargo/bin" ]] && path_parts="${path_parts:+$path_parts:}$HOME/.cargo/bin"
+    [[ -d "$HOME/go/bin" ]] && path_parts="${path_parts:+$path_parts:}$HOME/go/bin"
+
+    # Minimal settings: PATH, venv, and venv activation hook
+    # NO aliases, NO fancy shell features, NO slow initializers
     cat > "$settings_file" << EOF
 {
   "env": {
-    "PATH": "$HOME/.local/bin:$HOME/.cargo/bin:$HOME/go/bin:\$PATH",
-    "GOPATH": "$HOME/go",
-    "RUST_BACKTRACE": "1",
-    "NODE_OPTIONS": "--max-old-space-size=4096"
-  },
+    "PATH": "${path_parts}:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"${venv_path:+,
+    "VIRTUAL_ENV": "$venv_path"}
+  }${venv_path:+,
   "hooks": {
     "SessionStart": [
       {
-        "matcher": "startup",
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "$hooks_script"
+            "command": "echo 'source $venv_path/bin/activate' >> \"\$CLAUDE_ENV_FILE\""
           }
         ]
       }
     ]
-  },
-  "permissions": {
-    "allow": [
-      "Bash(git:*)",
-      "Bash(npm:*)",
-      "Bash(npx:*)",
-      "Bash(node:*)",
-      "Bash(python:*)",
-      "Bash(python3:*)",
-      "Bash(pip:*)",
-      "Bash(pip3:*)",
-      "Bash(uv:*)",
-      "Bash(mise:*)",
-      "Bash(cargo:*)",
-      "Bash(rustc:*)",
-      "Bash(rustup:*)",
-      "Bash(go:*)",
-      "Bash(ls:*)",
-      "Bash(cat:*)",
-      "Bash(head:*)",
-      "Bash(tail:*)",
-      "Bash(tree:*)",
-      "Bash(find:*)",
-      "Bash(grep:*)",
-      "Bash(rg:*)",
-      "Bash(fd:*)",
-      "Bash(fzf:*)",
-      "Bash(bat:*)",
-      "Bash(eza:*)",
-      "Bash(which:*)",
-      "Bash(pwd)",
-      "Bash(echo:*)",
-      "Bash(mkdir:*)",
-      "Bash(touch:*)",
-      "Bash(cp:*)",
-      "Bash(mv:*)",
-      "Bash(rm:*)",
-      "Bash(chmod:*)",
-      "Bash(curl:*)",
-      "Bash(wget:*)",
-      "Bash(jq:*)",
-      "Bash(make:*)",
-      "Bash(cmake:*)",
-      "Bash(docker:*)",
-      "Bash(nerdctl:*)",
-      "Bash(kubectl:*)",
-      "Bash(terraform:*)",
-      "Bash(pytest:*)",
-      "Bash(ruff:*)",
-      "Bash(pyright:*)",
-      "Bash(black:*)",
-      "Bash(mypy:*)",
-      "Bash(eslint:*)",
-      "Bash(prettier:*)",
-      "Bash(tsc:*)",
-      "Bash(pnpm:*)",
-      "Bash(yarn:*)"
-    ],
-    "deny": [
-      "Bash(rm -rf /)",
-      "Bash(rm -rf /*)",
-      "Bash(rm -rf ~)",
-      "Bash(rm -rf \$HOME)",
-      "Bash(sudo rm -rf /)",
-      "Bash(sudo rm -rf /*)",
-      "Bash(mkfs:*)",
-      "Bash(dd:*)",
-      "Bash(chmod 777 /)",
-      "Bash(shutdown:*)",
-      "Bash(reboot)",
-      "Bash(init 0)",
-      "Bash(init 6)",
-      "Bash(halt)",
-      "Bash(poweroff)"
-    ]
-  }
+  }}
 }
 EOF
 
     log_success "Claude Code settings created at $settings_file"
+    log_info "Minimal config: PATH + Python venv only (no aliases, no slow initializers)"
 }
 
 merge_claude_settings() {
     local settings_file="$1"
 
-    # Only update specific fields without overwriting user customizations
+    # Only add PATH if missing - don't overwrite user customizations
     if cmd_exists jq; then
         local tmp_file
         tmp_file="$(mktemp)"
 
-        # Add env paths if missing
+        # Minimal merge: just ensure PATH has essential dirs
         jq --arg home "$HOME" \
-           '.env.PATH //= ($home + "/.local/bin:" + $home + "/.cargo/bin:" + $home + "/go/bin:$PATH") |
-            .env.GOPATH //= ($home + "/go") |
-            .env.RUST_BACKTRACE //= "1"' \
+           '.env.PATH //= ($home + "/.local/bin:/usr/local/bin:/usr/bin:/bin")' \
            "$settings_file" > "$tmp_file" && mv "$tmp_file" "$settings_file"
 
-        log_success "Claude Code settings updated"
+        log_success "Claude Code settings updated (minimal)"
     else
         log_warn "jq not available, skipping settings merge"
     fi
 }
 
 # =============================================================================
-# STARTUP HOOKS
+# STARTUP HOOKS (DISABLED - hooks are now inline in settings.json)
 # =============================================================================
 
 setup_startup_hooks() {
-    if [[ "$CLAUDE_SETUP_HOOKS" != "true" ]]; then
-        log_skip "Startup hooks setup disabled"
-        return 0
-    fi
+    # Hooks are now embedded directly in settings.json as a simple inline command
+    # No external script needed - this keeps Claude Code startup fast and predictable
+    #
+    # The only hook we use: activate Python venv if present
+    # Everything else (PATH, env vars) is in the static "env" section
+    #
+    # DO NOT add: mise, nvm, pyenv, cargo env, or any other slow initializers
+    # Claude Code should start instantly with a clean, minimal environment
 
-    section "Setting Up Claude Startup Hooks"
-
-    local hooks_dir="$CLAUDE_CONFIG_DIR/hooks"
-    ensure_dir "$hooks_dir"
-
-    local hooks_script="$hooks_dir/setup-env.sh"
-
-    # Create the environment setup script
-    cat > "$hooks_script" << 'HOOKEOF'
-#!/bin/bash
-# Claude Code startup hook - sets up multi-language environment
-# This script is called at session start and writes to CLAUDE_ENV_FILE
-
-if [[ -z "$CLAUDE_ENV_FILE" ]]; then
-    exit 0
-fi
-
-# mise (polyglot version manager) - preferred
-# NOTE: Claude Code runs zsh, not bash, so we activate for zsh
-if command -v mise &>/dev/null; then
-    echo 'eval "$(mise activate zsh)"' >> "$CLAUDE_ENV_FILE"
-elif [[ -f "$HOME/.local/bin/mise" ]]; then
-    echo 'eval "$($HOME/.local/bin/mise activate zsh)"' >> "$CLAUDE_ENV_FILE"
-fi
-
-# Rust/Cargo
-if [[ -f "$HOME/.cargo/env" ]]; then
-    echo 'source "$HOME/.cargo/env"' >> "$CLAUDE_ENV_FILE"
-fi
-
-# Go
-if [[ -d "$HOME/go/bin" ]]; then
-    echo 'export GOPATH="$HOME/go"' >> "$CLAUDE_ENV_FILE"
-    echo 'export PATH="$GOPATH/bin:$PATH"' >> "$CLAUDE_ENV_FILE"
-fi
-
-# Node.js via nvm (fallback if mise not managing node)
-if [[ -s "$HOME/.nvm/nvm.sh" ]]; then
-    if ! command -v mise &>/dev/null || ! mise current node &>/dev/null 2>&1; then
-        echo 'export NVM_DIR="$HOME/.nvm"' >> "$CLAUDE_ENV_FILE"
-        echo '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"' >> "$CLAUDE_ENV_FILE"
-    fi
-fi
-
-# Python via pyenv (fallback if mise not managing python)
-if command -v pyenv &>/dev/null; then
-    if ! command -v mise &>/dev/null || ! mise current python &>/dev/null 2>&1; then
-        echo 'eval "$(pyenv init -)"' >> "$CLAUDE_ENV_FILE"
-    fi
-fi
-
-# Ensure local bin is in PATH
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$CLAUDE_ENV_FILE"
-
-# Project-local bins (node_modules)
-echo 'export PATH="./node_modules/.bin:$PATH"' >> "$CLAUDE_ENV_FILE"
-
-# Python virtual environments
-HOOKEOF
-
-    # Add configurable venv paths (handles both relative and absolute)
-    local venv_path_additions=""
-    for venv_path in $CLAUDE_VENV_PATHS; do
-        if [[ "$venv_path" == /* ]]; then
-            # Absolute path
-            venv_path_additions+="${venv_path}/bin:"
-        else
-            # Relative path
-            venv_path_additions+="./${venv_path}/bin:"
-        fi
-    done
-
-    cat >> "$hooks_script" << HOOKEOF
-# Configurable venv paths: $CLAUDE_VENV_PATHS
-echo 'export PATH="${venv_path_additions}\$PATH"' >> "\$CLAUDE_ENV_FILE"
-
-exit 0
-HOOKEOF
-
-    chmod +x "$hooks_script"
-    log_success "Startup hook created at $hooks_script"
-
-    # Update settings to reference the hook
-    local settings_file="$CLAUDE_CONFIG_DIR/settings.json"
-    if [[ -f "$settings_file" ]] && cmd_exists jq; then
-        local tmp_file
-        tmp_file="$(mktemp)"
-
-        jq --arg script "$hooks_script" \
-           '.hooks.SessionStart = [{"matcher": "startup", "hooks": [{"type": "command", "command": $script}]}]' \
-           "$settings_file" > "$tmp_file" && mv "$tmp_file" "$settings_file"
-
-        log_success "Settings updated with startup hook"
-    fi
+    log_skip "Startup hooks handled inline in settings.json (no external scripts)"
 }
 
 # =============================================================================
