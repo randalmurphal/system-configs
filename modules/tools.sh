@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # tools.sh - Modern CLI tools installation
-# Replaces: cat->bat, ls->eza, find->fd, grep->ripgrep, cd->zoxide, etc.
+# Replaces: cat->bat, ls->eza, cd->zoxide, etc.
 
 set -euo pipefail
 
@@ -73,12 +73,6 @@ install_enhanced_tools() {
     # eza - modern ls replacement (successor to exa)
     install_eza
 
-    # fd - faster, friendlier find
-    install_fd
-
-    # ripgrep - faster grep
-    install_ripgrep
-
     # fzf - fuzzy finder
     install_fzf
 
@@ -126,31 +120,6 @@ install_eza() {
         log_info "Installing eza via cargo..."
         cargo install eza
     fi
-}
-
-install_fd() {
-    if cmd_exists fd || cmd_exists fdfind; then
-        log_skip "fd already installed"
-        return 0
-    fi
-
-    pkg_install fd
-
-    # On Debian/Ubuntu, fd is installed as fdfind
-    if cmd_exists fdfind && ! cmd_exists fd; then
-        ensure_dir "$HOME/.local/bin"
-        ln -sf "$(command -v fdfind)" "$HOME/.local/bin/fd"
-        log_info "Created fd symlink for fdfind"
-    fi
-}
-
-install_ripgrep() {
-    if cmd_exists rg; then
-        log_skip "ripgrep already installed"
-        return 0
-    fi
-
-    pkg_install ripgrep
 }
 
 install_fzf() {

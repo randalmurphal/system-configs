@@ -50,7 +50,7 @@ source "$SCRIPT_DIR/../lib/symlinks.sh"
 | `pkg_update` | Update package lists |
 | `get_package_name <generic>` | Map to distro-specific name |
 
-**Package mapping**: Use generic names (e.g., `fd`), `PACKAGE_MAP` translates to distro-specific (`fd-find` on apt).
+**Package mapping**: Use generic names (e.g., `bat`), `PACKAGE_MAP` translates to distro-specific (`batcat` on older apt).
 
 ### symlinks.sh
 

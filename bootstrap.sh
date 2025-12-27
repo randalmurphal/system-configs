@@ -44,7 +44,7 @@ MODULES=(
     "terminal:Tmux, TPM, WezTerm config"
     "editor:Neovim, LazyVim"
     "languages:mise, Python 3.12, Node.js, Go, Rust"
-    "tools:Modern CLI (bat, eza, fd, ripgrep, fzf, zoxide)"
+    "tools:Modern CLI (bat, eza, fzf, zoxide)"
     "git:Git configuration, SSH keys"
     "claude:Claude Code CLI settings"
 )

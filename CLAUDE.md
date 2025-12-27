@@ -39,7 +39,7 @@ system-configs/
 | `terminal` | tmux + TPM + WezTerm | `TERMINAL_INSTALL_TPM` |
 | `editor` | Neovim + config (LazyVim/GitHub/etc) | `EDITOR_NVIM_DISTRO`, `EDITOR_NVIM_REPO` |
 | `languages` | mise + Python 3.12 + Node LTS + Go + Rust | `LANG_PYTHON_VERSION` |
-| `tools` | Modern CLI (bat, fd, ripgrep, fzf, eza, zoxide) | `TOOLS_ENHANCED` |
+| `tools` | Modern CLI (bat, eza, fzf, zoxide) | `TOOLS_ENHANCED` |
 | `claude` | Claude Code CLI + settings + MCP | `CLAUDE_INSTALL` |
 | `wsl` | WSL optimizations, clipboard, Windows interop | `WSL_SYSTEMD` |
 

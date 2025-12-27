@@ -26,7 +26,7 @@ cp options.example.conf options.conf
 | **terminal** | tmux, TPM (plugin manager), WezTerm config |
 | **editor** | Neovim (latest), config (LazyVim/custom), Nerd Fonts |
 | **languages** | mise (version manager), Python 3.12, Node.js LTS, Go, Rust |
-| **tools** | bat, eza, fd, ripgrep, fzf, zoxide, delta, lazygit, gh |
+| **tools** | bat, eza, fzf, zoxide, delta, lazygit, gh |
 | **claude** | Claude Code CLI, settings, MCP servers |
 | **wsl** | WSL optimizations, clipboard, Windows interop (WSL only) |
 
@@ -126,8 +126,6 @@ After installation, these replacements are available:
 |---------|--------|-------------|
 | `cat` | `bat` | Syntax highlighting |
 | `ls` | `eza` | Better file listing |
-| `find` | `fd` | Faster file search |
-| `grep` | `rg` | Faster text search |
 | `cd` | `z` | Smart directory jumping (zoxide) |
 
 ## Notes

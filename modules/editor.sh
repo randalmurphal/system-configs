@@ -316,12 +316,6 @@ install_nvim_dependencies() {
     pkg_install curl
     pkg_install unzip
 
-    # For Telescope live grep
-    pkg_install ripgrep
-
-    # For Telescope find files
-    pkg_install fd
-
     # For clipboard support (not needed in WSL - uses Windows clipboard)
     if is_linux && [[ "$IS_WSL" != "1" ]]; then
         pkg_install xclip

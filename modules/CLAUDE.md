@@ -12,7 +12,7 @@
 | `terminal.sh` | tmux, TPM, WezTerm config | `TERMINAL_INSTALL_TPM`, `TERMINAL_INSTALL_PLUGINS` |
 | `editor.sh` | Neovim, config (LazyVim/custom), fonts | `EDITOR_NVIM_DISTRO`, `EDITOR_NVIM_REPO` |
 | `languages.sh` | mise, Python, Node, Go, Rust | `LANG_PYTHON_VERSION`, `LANG_NODE_VERSION` |
-| `tools.sh` | CLI tools (bat, fd, ripgrep, fzf, etc.) | `TOOLS_CORE`, `TOOLS_ENHANCED`, `TOOLS_DEV` |
+| `tools.sh` | CLI tools (bat, eza, fzf, zoxide, etc.) | `TOOLS_CORE`, `TOOLS_ENHANCED`, `TOOLS_DEV` |
 | `claude.sh` | Claude Code CLI, settings, MCP | `CLAUDE_INSTALL`, `CLAUDE_DEFAULT_MODEL` |
 | `wsl.sh` | WSL optimizations, clipboard, wrappers | `WSL_SYSTEMD`, `WSL_WINDOWS_INTEROP` |
 | `desktop/opensuse-plasma.sh` | Rofi, KWin config (openSUSE only) | `PLASMA_INSTALL_ROFI` |

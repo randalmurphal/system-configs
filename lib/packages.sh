@@ -58,8 +58,6 @@ declare -A PACKAGE_MAP=(
 
     # Modern CLI tools
     ["bat"]="apt:bat,brew:bat,dnf:bat,zypper:bat,pacman:bat"
-    ["ripgrep"]="apt:ripgrep,brew:ripgrep,dnf:ripgrep,zypper:ripgrep,pacman:ripgrep"
-    ["fd"]="apt:fd-find,brew:fd,dnf:fd-find,zypper:fd,pacman:fd"
     ["eza"]="apt:eza,brew:eza,dnf:eza,zypper:eza,pacman:eza"
     ["fzf"]="apt:fzf,brew:fzf,dnf:fzf,zypper:fzf,pacman:fzf"
     ["zoxide"]="apt:zoxide,brew:zoxide,dnf:zoxide,zypper:zoxide,pacman:zoxide"

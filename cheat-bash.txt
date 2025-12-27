@@ -14,8 +14,8 @@
 [38;5;255mls / ll / la[0m    eza with git status
 [38;5;255mlt[0m              eza tree view
 [38;5;255mbat [file][0m      cat with syntax highlighting
-[38;5;255mfd [pattern][0m    fast file finder
-[38;5;255mrg [pattern][0m    ripgrep (fast grep)
+[38;5;255mfind [expr][0m     find files (the OG)
+[38;5;255mgrep [pattern][0m  search text (still goated)
 [38;5;255mfzf[0m             fuzzy finder
 [38;5;255mhtop / btop[0m     process viewers
 [38;5;255mranger[0m          file manager
