@@ -1,4 +1,43 @@
-use std::{fs, process::Command, thread, time::Duration};
+use std::{env, fs, path::PathBuf, process::Command, thread, time::Duration};
+
+/// Detect if running in WSL and return the Windows user's home path if so.
+/// Returns path like "/mnt/c/Users/Randy" if in WSL, None otherwise.
+fn detect_wsl_windows_home() -> Option<PathBuf> {
+    // Check if we're in WSL by looking for WSL-specific indicators
+    let is_wsl = fs::read_to_string("/proc/version")
+        .map(|v| v.to_lowercase().contains("microsoft") || v.to_lowercase().contains("wsl"))
+        .unwrap_or(false);
+
+    if !is_wsl {
+        return None;
+    }
+
+    // First try: check for common Windows user directories directly
+    // This is the most reliable method in systemd service context
+    for username in &["Randy", "rmurphy"] {
+        let path = PathBuf::from(format!("/mnt/c/Users/{}", username));
+        if path.exists() && path.is_dir() {
+            return Some(path);
+        }
+    }
+
+    // Second try: use wslpath with USERPROFILE env var (works in interactive shells)
+    if let Ok(userprofile) = env::var("USERPROFILE") {
+        if !userprofile.is_empty() {
+            if let Ok(output) = Command::new("wslpath").args(["-u", &userprofile]).output() {
+                if output.status.success() {
+                    let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                    // Validate it's actually a Windows user path
+                    if path.starts_with("/mnt/") && PathBuf::from(&path).exists() {
+                        return Some(PathBuf::from(path));
+                    }
+                }
+            }
+        }
+    }
+
+    None
+}
 
 fn format_throughput(bytes_per_sec: f64) -> String {
     if bytes_per_sec >= 1_000_000_000.0 {
@@ -118,6 +157,13 @@ fn main() {
     let mut tick: u32 = 0;
     const EMA_ALPHA: f64 = 0.3; // 30% new, 70% history
 
+    // Detect WSL and Windows home path for dual-write
+    let windows_sysinfo_path = detect_wsl_windows_home().map(|home| {
+        let path = home.join(".wezterm-sysinfo");
+        eprintln!("sysinfo-daemon: WSL detected, will also write to {:?}", path);
+        path
+    });
+
     // Detect network interface once at startup
     let net_interface = detect_network_interface();
     if let Some(ref iface) = net_interface {
@@ -133,7 +179,7 @@ fn main() {
     }
 
     loop {
-        // CPU (every tick - 8Hz)
+        // CPU (every tick - 4Hz)
         let cpu_pct = if let Ok(stat) = fs::read_to_string("/proc/stat") {
             if let Some(cpu_line) = stat.lines().next() {
                 let vals: Vec<u64> = cpu_line
@@ -168,8 +214,8 @@ fn main() {
             0
         };
 
-        // Network with EMA smoothing (every 4th tick - 2Hz)
-        if tick % 4 == 0 {
+        // Network with EMA smoothing (every 2nd tick - 2Hz at 4Hz base)
+        if tick % 2 == 0 {
             if let Some(ref iface) = net_interface {
                 let (rx, tx) = parse_net_dev(iface).unwrap_or((0, 0));
                 let rx_rate = (rx.saturating_sub(prev_rx)) as f64 * 2.0; // 2Hz so * 2 = per second
@@ -185,8 +231,8 @@ fn main() {
             }
         }
 
-        // GPU stats (every 8th tick - 1Hz, nvidia-smi is relatively slow)
-        if tick % 8 == 0 {
+        // GPU stats (every 4th tick - 1Hz at 4Hz base, nvidia-smi is relatively slow)
+        if tick % 4 == 0 {
             if let Some(path) = nvidia_smi_path {
                 gpu_str = query_nvidia_gpu(path).map(|(util, mem_used, mem_total)| {
                     format!(
@@ -199,7 +245,7 @@ fn main() {
             }
         }
 
-        // Memory (every tick - 8Hz)
+        // Memory (every tick - 4Hz)
         let mem_str = if let Ok(meminfo) = fs::read_to_string("/proc/meminfo") {
             let mut total_mem = 0u64;
             let mut avail_mem = 0u64;
@@ -235,9 +281,15 @@ fn main() {
             None => format!("{}||CPU: {:3}% | {}", net_str, cpu_pct, mem_str),
         };
 
+        // Always write to Linux path
         let _ = fs::write("/tmp/sysinfo", &output);
 
+        // Also write to Windows path if in WSL (for WezTerm to read without crossing boundary)
+        if let Some(ref win_path) = windows_sysinfo_path {
+            let _ = fs::write(win_path, &output);
+        }
+
         tick = tick.wrapping_add(1);
-        thread::sleep(Duration::from_millis(125)); // 8Hz base tick
+        thread::sleep(Duration::from_millis(250)); // 4Hz base tick
     }
 }

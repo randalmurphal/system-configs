@@ -18,9 +18,8 @@ if wezterm.target_triple:find('windows') then
   config.default_domain = 'WSL:Ubuntu'
 end
 
--- Performance
-config.front_end = 'WebGpu'
-config.webgpu_power_preference = 'HighPerformance'
+-- Performance: OpenGL is the safer default (WebGpu had issues on Windows/WSL)
+config.front_end = 'OpenGL'
 
 -- =============================================================================
 -- DARK PURPLE THEME (matching your nvim setup)
@@ -110,61 +109,6 @@ config.inactive_pane_hsb = {
 }
 
 -- =============================================================================
--- FOCUS-AWARE WINDOW EFFECTS
--- =============================================================================
--- Tier 1: Lua-based effects (works on Windows+WSL and Linux)
--- Tier 2: GPU shader effects (Linux with dedicated GPU only - requires source mod)
-
-local is_linux = wezterm.target_triple:find('linux')
-local has_gpu = is_linux  -- Assume Linux = dedicated GPU for now
-
--- Focus state styling
-local focus_config = {
-  -- When window is focused
-  focused = {
-    opacity = 1.0,
-    -- background_image = nil,  -- Could set a path here
-  },
-  -- When window loses focus
-  unfocused = {
-    opacity = 0.85,
-    -- background_image = '/path/to/unfocused-bg.png',  -- Optional
-  },
-}
-
--- GPU-enhanced config (Linux only) - placeholder for future source mods
-if has_gpu then
-  focus_config.gpu_effects = {
-    enabled = false,  -- Set true when shader mods are ready
-    unfocused_animation = 'subtle_noise',  -- Future: noise, pulse, matrix, etc.
-    blur_radius = 5,
-  }
-end
-
--- Apply focus changes dynamically
-wezterm.on('window-focus-changed', function(window, pane)
-  local overrides = window:get_config_overrides() or {}
-
-  if window:is_focused() then
-    -- === FOCUSED STATE ===
-    overrides.window_background_opacity = 1.0
-    overrides.foreground_text_hsb = nil  -- Normal text brightness
-  else
-    -- === UNFOCUSED STATE ===
-    overrides.window_background_opacity = 0.88
-
-    -- Dim text brightness only, keep full saturation (no pastel bullshit)
-    overrides.foreground_text_hsb = {
-      hue = 1.0,         -- Keep hue unchanged
-      saturation = 1.0,  -- Keep saturation full
-      brightness = 0.7,  -- Just dim it
-    }
-  end
-
-  window:set_config_overrides(overrides)
-end)
-
--- =============================================================================
 -- FONT
 -- =============================================================================
 
@@ -209,12 +153,6 @@ config.keys = {
   { key = 'c', mods = 'CTRL', action = act.Multiple {
     act.ScrollToBottom,
     act.SendKey { key = 'c', mods = 'CTRL' },
-  }},
-
-  -- Escape = snap to bottom + send Escape
-  { key = 'Escape', mods = 'NONE', action = act.Multiple {
-    act.ScrollToBottom,
-    act.SendKey { key = 'Escape', mods = 'NONE' },
   }},
 
   -- Ctrl+PageDown = snap to bottom (no additional key sent)
@@ -467,24 +405,39 @@ config.visual_bell = {
 -- STATUS BAR (right side, like your tmux)
 -- =============================================================================
 
--- Background poller for sysinfo (8Hz refresh from daemon)
+-- Determine sysinfo file path based on platform
+-- Windows: read from Windows-side file (no WSL boundary crossing)
+-- Linux: read from /tmp/sysinfo directly
+local sysinfo_path
+if wezterm.target_triple:find('windows') then
+  -- On Windows, the daemon writes to both /tmp/sysinfo (WSL) and Windows user home
+  -- We read from Windows side to avoid crossing the WSL boundary
+  sysinfo_path = os.getenv('USERPROFILE') .. '\\.wezterm-sysinfo'
+else
+  -- Native Linux: read directly from /tmp
+  sysinfo_path = '/tmp/sysinfo'
+end
+
+-- Background poller for sysinfo (4Hz refresh from daemon)
 local function update_sysinfo()
-  local success, stdout = wezterm.run_child_process({
-    'wsl', '-e', 'cat', '/tmp/sysinfo'
-  })
-  if success and stdout then
-    local content = stdout:gsub('%s+$', '')
-    -- Split on double pipe: network || cpu/ram
-    local sep_start, sep_end = content:find('||', 1, true)
-    if sep_start then
-      wezterm.GLOBAL.sysinfo_net = content:sub(1, sep_start - 1)
-      wezterm.GLOBAL.sysinfo_cpuram = content:sub(sep_end + 1)
-    else
-      wezterm.GLOBAL.sysinfo_net = ''
-      wezterm.GLOBAL.sysinfo_cpuram = content
+  local file = io.open(sysinfo_path, 'r')
+  if file then
+    local content = file:read('*all')
+    file:close()
+    if content then
+      content = content:gsub('%s+$', '')
+      -- Split on double pipe: network || cpu/ram
+      local sep_start, sep_end = content:find('||', 1, true)
+      if sep_start then
+        wezterm.GLOBAL.sysinfo_net = content:sub(1, sep_start - 1)
+        wezterm.GLOBAL.sysinfo_cpuram = content:sub(sep_end + 1)
+      else
+        wezterm.GLOBAL.sysinfo_net = ''
+        wezterm.GLOBAL.sysinfo_cpuram = content
+      end
     end
   end
-  wezterm.time.call_after(0.125, update_sysinfo)  -- 8Hz
+  wezterm.time.call_after(0.25, update_sysinfo)  -- 4Hz
 end
 
 wezterm.time.call_after(0, update_sysinfo)
