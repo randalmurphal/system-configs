@@ -74,19 +74,34 @@ install_claude_code() {
 
 add_claude_alias() {
     local zshrc="$HOME/.zshrc"
-    local alias_line='alias claude="$HOME/.local/bin/claude"'
+    local claude_local="$HOME/.claude/local/claude"
+
+    # Check if local binary exists
+    if [[ ! -x "$claude_local" ]]; then
+        log_info "Local Claude binary not found at $claude_local"
+        log_info "Run 'claude' once, then 'claude install' to create local binary"
+        return 0
+    fi
 
     # Check if alias already exists
     if grep -q 'alias claude=' "$zshrc" 2>/dev/null; then
-        log_skip "Claude alias already in .zshrc"
+        # Update if pointing to wrong location
+        if grep -q 'alias claude=.*\.local/bin/claude' "$zshrc"; then
+            log_info "Updating Claude alias to correct path..."
+            sed -i.bak 's|alias claude=.*\.local/bin/claude.*|alias claude="$HOME/.claude/local/claude"|' "$zshrc"
+            rm -f "$zshrc.bak"
+            log_success "Updated Claude alias to ~/.claude/local/claude"
+        else
+            log_skip "Claude alias already in .zshrc"
+        fi
         return 0
     fi
 
     # Add alias to zshrc
     cat >> "$zshrc" << 'EOF'
 
-# Claude Code - use local binary for better performance
-alias claude="$HOME/.local/bin/claude"
+# Claude Code - use local binary for faster startup
+alias claude="$HOME/.claude/local/claude"
 EOF
     log_success "Added claude alias to .zshrc"
 }
@@ -189,8 +204,13 @@ create_claude_settings() {
     [[ -d "$HOME/.local/share/flatpak/exports/bin" ]] && path_parts="${path_parts:+$path_parts:}$HOME/.local/share/flatpak/exports/bin"
     [[ -d "/var/lib/flatpak/exports/bin" ]] && path_parts="${path_parts:+$path_parts:}/var/lib/flatpak/exports/bin"
 
+    # Homebrew paths - ARM first (Apple Silicon), then Intel
+    # This ensures native binaries are preferred on Apple Silicon
+    [[ -d "/opt/homebrew/bin" ]] && path_parts="${path_parts:+$path_parts:}/opt/homebrew/bin"
+    [[ -d "/usr/local/bin" ]] && path_parts="${path_parts:+$path_parts:}/usr/local/bin"
+
     # System paths (always include)
-    path_parts="${path_parts:+$path_parts:}/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+    path_parts="${path_parts:+$path_parts:}/usr/bin:/bin:/usr/sbin:/sbin"
 
     # Minimal settings: just PATH and VIRTUAL_ENV
     # NO hooks needed - VIRTUAL_ENV + PATH is sufficient for Python

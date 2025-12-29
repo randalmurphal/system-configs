@@ -11,9 +11,26 @@ fi
 # PACKAGE MANAGER DETECTION
 # =============================================================================
 
+# Get the preferred brew path (ARM first on Apple Silicon)
+get_brew_path() {
+    if [[ -x "/opt/homebrew/bin/brew" ]]; then
+        echo "/opt/homebrew/bin/brew"  # ARM (Apple Silicon)
+    elif [[ -x "/usr/local/bin/brew" ]]; then
+        echo "/usr/local/bin/brew"      # Intel
+    else
+        echo ""
+    fi
+}
+
 detect_package_manager() {
-    if is_macos && cmd_exists brew; then
-        echo "brew"
+    if is_macos; then
+        local brew_path
+        brew_path="$(get_brew_path)"
+        if [[ -n "$brew_path" ]]; then
+            echo "brew"
+        else
+            echo "brew-missing"
+        fi
     elif cmd_exists apt-get; then
         echo "apt"
     elif cmd_exists dnf; then
@@ -22,14 +39,23 @@ detect_package_manager() {
         echo "zypper"
     elif cmd_exists pacman; then
         echo "pacman"
-    elif is_macos; then
-        echo "brew-missing"
     else
         echo "unknown"
     fi
 }
 
 export PKG_MANAGER="${PKG_MANAGER:-$(detect_package_manager)}"
+
+# Wrapper to call brew with correct path (ARM preferred)
+brew_cmd() {
+    local brew_path
+    brew_path="$(get_brew_path)"
+    if [[ -z "$brew_path" ]]; then
+        log_error "Homebrew not found"
+        return 1
+    fi
+    "$brew_path" "$@"
+}
 
 # =============================================================================
 # PACKAGE NAME MAPPING
@@ -140,7 +166,7 @@ pkg_update() {
             sudo apt-get update -qq
             ;;
         brew)
-            brew update
+            brew_cmd update
             ;;
         dnf)
             sudo dnf check-update || true  # Returns 100 if updates available
@@ -182,7 +208,7 @@ pkg_install() {
             sudo apt-get install -y -qq "$pkg_name"
             ;;
         brew)
-            brew install "$pkg_name"
+            brew_cmd install "$pkg_name"
             ;;
         dnf)
             # Handle group installs (start with @)
@@ -231,7 +257,7 @@ pkg_is_installed() {
             dpkg -l "$pkg_name" 2>/dev/null | grep -q "^ii"
             ;;
         brew)
-            brew list "$pkg_name" &>/dev/null
+            brew_cmd list "$pkg_name" &>/dev/null
             ;;
         dnf)
             rpm -q "$pkg_name" &>/dev/null
@@ -261,7 +287,7 @@ pkg_remove() {
             sudo apt-get remove -y "$pkg_name"
             ;;
         brew)
-            brew uninstall "$pkg_name"
+            brew_cmd uninstall "$pkg_name"
             ;;
         dnf)
             sudo dnf remove -y "$pkg_name"
@@ -284,20 +310,48 @@ pkg_remove() {
 # =============================================================================
 
 install_homebrew() {
-    if cmd_exists brew; then
-        log_skip "Homebrew already installed"
-        return 0
-    fi
-
     if ! is_macos; then
         log_error "Homebrew installation only supported on macOS"
         return 1
     fi
 
-    log_step "Installing Homebrew..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    # Check for ARM Homebrew first (preferred on Apple Silicon)
+    if [[ -x "/opt/homebrew/bin/brew" ]]; then
+        log_skip "Homebrew (ARM) already installed at /opt/homebrew"
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+        export PKG_MANAGER="brew"
+        return 0
+    fi
 
-    # Add to PATH for this session
+    # Check for Intel Homebrew
+    if [[ -x "/usr/local/bin/brew" ]]; then
+        local arch
+        arch="$(uname -m)"
+        if [[ "$arch" == "arm64" ]]; then
+            log_warn "Intel Homebrew found but running on Apple Silicon"
+            log_info "Installing native ARM Homebrew at /opt/homebrew..."
+            # Continue to install ARM version
+        else
+            log_skip "Homebrew (Intel) already installed at /usr/local"
+            eval "$(/usr/local/bin/brew shellenv)"
+            export PKG_MANAGER="brew"
+            return 0
+        fi
+    fi
+
+    log_step "Installing Homebrew..."
+
+    # On Apple Silicon, force ARM mode for native install
+    local arch
+    arch="$(uname -m)"
+    if [[ "$arch" == "arm64" ]]; then
+        log_info "Detected Apple Silicon - installing native ARM Homebrew to /opt/homebrew"
+        /usr/bin/arch -arm64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    else
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    fi
+
+    # Add to PATH for this session (prefer ARM)
     if [[ -f "/opt/homebrew/bin/brew" ]]; then
         eval "$(/opt/homebrew/bin/brew shellenv)"
     elif [[ -f "/usr/local/bin/brew" ]]; then

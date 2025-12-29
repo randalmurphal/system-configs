@@ -54,7 +54,12 @@ system-configs/
 | Arch/Manjaro | pacman | Yes |
 | openSUSE | zypper | Yes |
 | macOS | Homebrew | Yes |
+| macOS (Apple Silicon) | Homebrew (ARM at `/opt/homebrew`) | Yes |
 | WSL2 | apt (+ Windows integration) | Yes |
+
+**macOS notes:**
+- Requires bash 4+ (script auto-detects Homebrew's bash or prompts to install)
+- Apple Silicon: Prefers ARM Homebrew at `/opt/homebrew`, falls back to Intel at `/usr/local`
 
 WSL gets additional: clipboard integration, Windows PATH wrappers, `/etc/wsl.conf` setup.
 
@@ -163,3 +168,5 @@ DEBUG=1 ./bootstrap.sh      # Verbose output
 | Neovim too old | `editor.sh` auto-installs AppImage on Ubuntu |
 | mise not found after install | Restart shell or `source ~/.zshrc` |
 | WSL changes not applied | Run `wsl --shutdown` in Windows Terminal |
+| macOS: "bash 4+ required" | Install via `brew install bash`, then re-run |
+| macOS: Intel binaries on Apple Silicon | Install ARM Homebrew: script will prompt or auto-detect |

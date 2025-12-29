@@ -8,6 +8,45 @@
 #   ./bootstrap.sh --module X   # Install specific module
 #   ./bootstrap.sh --help       # Show help
 
+# =============================================================================
+# BASH VERSION CHECK (must run before anything else)
+# =============================================================================
+# Associative arrays require bash 4+. macOS ships with bash 3.2 (GPL2).
+# If on macOS with old bash, try to use Homebrew's bash or fail with instructions.
+
+if (( BASH_VERSINFO[0] < 4 )); then
+    # Only macOS typically has this problem
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        # Try Homebrew bash locations
+        for brew_bash in /opt/homebrew/bin/bash /usr/local/bin/bash; do
+            if [[ -x "$brew_bash" ]]; then
+                # Verify it's actually bash 4+
+                if "$brew_bash" -c '(( BASH_VERSINFO[0] >= 4 ))' 2>/dev/null; then
+                    exec "$brew_bash" "$0" "$@"
+                fi
+            fi
+        done
+
+        # No suitable bash found - give instructions
+        echo "ERROR: This script requires bash 4+ (you have bash ${BASH_VERSION})"
+        echo ""
+        echo "macOS ships with an ancient bash due to licensing. To fix:"
+        echo ""
+        echo "  1. Install Homebrew (if not installed):"
+        echo "     /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+        echo ""
+        echo "  2. Install modern bash:"
+        echo "     brew install bash"
+        echo ""
+        echo "  3. Run this script again"
+        echo ""
+        exit 1
+    else
+        echo "ERROR: This script requires bash 4+ (you have bash ${BASH_VERSION})"
+        exit 1
+    fi
+fi
+
 set -euo pipefail
 
 # =============================================================================
