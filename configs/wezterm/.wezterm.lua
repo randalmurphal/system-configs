@@ -18,8 +18,11 @@ if wezterm.target_triple:find('windows') then
   config.default_domain = 'WSL:Ubuntu'
 end
 
--- Performance: OpenGL is the safer default (WebGpu had issues on Windows/WSL)
-config.front_end = 'OpenGL'
+-- Performance tuning
+config.front_end = 'OpenGL'               -- Safer default (WebGpu had issues on Windows/WSL)
+config.max_fps = 120                      -- Higher FPS for smoother feel
+config.animation_fps = 60
+config.cursor_blink_rate = 0              -- Disable cursor blink (reduces redraws)
 
 -- =============================================================================
 -- DARK PURPLE THEME (matching your nvim setup)

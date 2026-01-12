@@ -16,20 +16,54 @@ if command -v mise &> /dev/null; then
 fi
 
 # ========================================
-# NVM (Legacy Node Version Manager)
+# NVM (Legacy Node Version Manager) - LAZY LOADED
 # ========================================
 # Only load nvm if mise is NOT managing node
-if ! command -v mise &> /dev/null || ! mise current node &> /dev/null 2>&1; then
+# NVM is lazy-loaded to avoid ~2 second shell startup penalty
+if ! command -v mise &> /dev/null || ! mise which node &> /dev/null 2>&1; then
     export NVM_DIR="$HOME/.nvm"
-    [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-    [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+
+    # Check if NVM is installed
+    if [[ -s "$NVM_DIR/nvm.sh" ]]; then
+        # Lazy-load NVM: create placeholder functions that load NVM on first use
+        _nvm_lazy_load() {
+            unset -f nvm node npm npx yarn pnpm 2>/dev/null
+            \. "$NVM_DIR/nvm.sh"
+            [[ -s "$NVM_DIR/bash_completion" ]] && \. "$NVM_DIR/bash_completion"
+        }
+
+        # Create stub functions for common node commands
+        nvm() { _nvm_lazy_load; nvm "$@"; }
+        node() { _nvm_lazy_load; node "$@"; }
+        npm() { _nvm_lazy_load; npm "$@"; }
+        npx() { _nvm_lazy_load; npx "$@"; }
+        yarn() { _nvm_lazy_load; yarn "$@"; }
+        pnpm() { _nvm_lazy_load; pnpm "$@"; }
+
+        # If there's a default node version, add its bin to PATH immediately
+        if [[ -d "$NVM_DIR/versions/node" ]]; then
+            local default_node
+            default_node=$(cat "$NVM_DIR/alias/default" 2>/dev/null | head -1)
+            if [[ -n "$default_node" ]]; then
+                local node_version
+                if [[ -d "$NVM_DIR/versions/node/$default_node" ]]; then
+                    node_version="$default_node"
+                else
+                    node_version=$(ls -1 "$NVM_DIR/versions/node" 2>/dev/null | grep "^v${default_node}" | tail -1)
+                fi
+                if [[ -n "$node_version" && -d "$NVM_DIR/versions/node/$node_version/bin" ]]; then
+                    export PATH="$NVM_DIR/versions/node/$node_version/bin:$PATH"
+                fi
+            fi
+        fi
+    fi
 fi
 
 # ========================================
 # Go (Legacy paths - if not using mise)
 # ========================================
 # Only add Go paths if mise isn't managing Go
-if ! command -v mise &> /dev/null || ! mise current go &> /dev/null 2>&1; then
+if ! command -v mise &> /dev/null || ! mise which go &> /dev/null 2>&1; then
     [ -d "$HOME/go-install/go/bin" ] && export PATH="$HOME/go-install/go/bin:$PATH"
 fi
 
