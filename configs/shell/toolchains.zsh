@@ -45,21 +45,23 @@ if ! command -v mise &> /dev/null || ! mise which node &> /dev/null 2>&1; then
         pnpm() { _nvm_lazy_load && command pnpm "$@"; }
 
         # If there's a default node version, add its bin to PATH immediately
-        # This allows shebang scripts to find node without triggering lazy load
+        # This allows shebang scripts and subprocesses to find node without lazy load
+        # Note: Using _nvm_* prefix to avoid polluting namespace, no 'local' for bash compat
         if [[ -d "$NVM_DIR/versions/node" ]]; then
-            local default_node
-            default_node=$(cat "$NVM_DIR/alias/default" 2>/dev/null | head -1)
-            if [[ -n "$default_node" ]]; then
-                local node_version
-                if [[ -d "$NVM_DIR/versions/node/$default_node" ]]; then
-                    node_version="$default_node"
+            _nvm_default=$(cat "$NVM_DIR/alias/default" 2>/dev/null | head -1)
+            if [[ -n "$_nvm_default" ]]; then
+                if [[ -d "$NVM_DIR/versions/node/$_nvm_default" ]]; then
+                    _nvm_version="$_nvm_default"
                 else
-                    node_version=$(ls -1 "$NVM_DIR/versions/node" 2>/dev/null | grep "^v${default_node}" | tail -1)
+                    # Resolve alias like "22" to "v22.17.1"
+                    _nvm_version=$(ls -1 "$NVM_DIR/versions/node" 2>/dev/null | grep "^v${_nvm_default}" | tail -1)
                 fi
-                if [[ -n "$node_version" && -d "$NVM_DIR/versions/node/$node_version/bin" ]]; then
-                    export PATH="$NVM_DIR/versions/node/$node_version/bin:$PATH"
+                if [[ -n "$_nvm_version" && -d "$NVM_DIR/versions/node/$_nvm_version/bin" ]]; then
+                    export PATH="$NVM_DIR/versions/node/$_nvm_version/bin:$PATH"
                 fi
+                unset _nvm_version
             fi
+            unset _nvm_default
         fi
     fi
 fi
