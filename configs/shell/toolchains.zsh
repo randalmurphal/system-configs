@@ -25,24 +25,39 @@ if ! command -v mise &> /dev/null || ! mise which node &> /dev/null 2>&1; then
 
     # Check if NVM is installed
     if [[ -s "$NVM_DIR/nvm.sh" ]]; then
-        # Lazy-load NVM: load on first use of any node command
-        _nvm_lazy_load() {
-            # Prevent recursive calls - unset this function first
-            unset -f _nvm_lazy_load 2>/dev/null
-            # Remove stub functions so real commands take over
+        # Self-contained lazy-load stubs. Each function loads NVM then runs the real command.
+        # These are captured by Claude Code's shell snapshot, so they can't depend on helpers.
+        nvm() {
             unset -f nvm node npm npx yarn pnpm 2>/dev/null
-            # Load NVM
             \. "$NVM_DIR/nvm.sh"
             [[ -s "$NVM_DIR/bash_completion" ]] && \. "$NVM_DIR/bash_completion"
+            nvm "$@"
         }
-
-        # Create stub functions - they load NVM then exec the real command
-        nvm() { _nvm_lazy_load && nvm "$@"; }
-        node() { _nvm_lazy_load && command node "$@"; }
-        npm() { _nvm_lazy_load && command npm "$@"; }
-        npx() { _nvm_lazy_load && command npx "$@"; }
-        yarn() { _nvm_lazy_load && command yarn "$@"; }
-        pnpm() { _nvm_lazy_load && command pnpm "$@"; }
+        node() {
+            unset -f nvm node npm npx yarn pnpm 2>/dev/null
+            \. "$NVM_DIR/nvm.sh"
+            command node "$@"
+        }
+        npm() {
+            unset -f nvm node npm npx yarn pnpm 2>/dev/null
+            \. "$NVM_DIR/nvm.sh"
+            command npm "$@"
+        }
+        npx() {
+            unset -f nvm node npm npx yarn pnpm 2>/dev/null
+            \. "$NVM_DIR/nvm.sh"
+            command npx "$@"
+        }
+        yarn() {
+            unset -f nvm node npm npx yarn pnpm 2>/dev/null
+            \. "$NVM_DIR/nvm.sh"
+            command yarn "$@"
+        }
+        pnpm() {
+            unset -f nvm node npm npx yarn pnpm 2>/dev/null
+            \. "$NVM_DIR/nvm.sh"
+            command pnpm "$@"
+        }
 
         # If there's a default node version, add its bin to PATH immediately
         # This allows shebang scripts and subprocesses to find node without lazy load
