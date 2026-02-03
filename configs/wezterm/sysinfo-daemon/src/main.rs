@@ -179,7 +179,7 @@ fn main() {
     }
 
     loop {
-        // CPU (every tick - 4Hz)
+        // CPU (every tick at 2Hz base)
         let cpu_pct = if let Ok(stat) = fs::read_to_string("/proc/stat") {
             if let Some(cpu_line) = stat.lines().next() {
                 let vals: Vec<u64> = cpu_line
@@ -214,25 +214,23 @@ fn main() {
             0
         };
 
-        // Network with EMA smoothing (every 2nd tick - 2Hz at 4Hz base)
-        if tick % 2 == 0 {
-            if let Some(ref iface) = net_interface {
-                let (rx, tx) = parse_net_dev(iface).unwrap_or((0, 0));
-                let rx_rate = (rx.saturating_sub(prev_rx)) as f64 * 2.0; // 2Hz so * 2 = per second
-                let tx_rate = (tx.saturating_sub(prev_tx)) as f64 * 2.0;
+        // Network with EMA smoothing (every tick at 2Hz base = every 500ms)
+        if let Some(ref iface) = net_interface {
+            let (rx, tx) = parse_net_dev(iface).unwrap_or((0, 0));
+            let rx_rate = (rx.saturating_sub(prev_rx)) as f64 * 2.0; // 500ms interval, *2 = per second
+            let tx_rate = (tx.saturating_sub(prev_tx)) as f64 * 2.0;
                 prev_rx = rx;
                 prev_tx = tx;
 
                 // Apply EMA: avg = avg * (1 - alpha) + new * alpha
-                rx_ema = rx_ema * (1.0 - EMA_ALPHA) + rx_rate * EMA_ALPHA;
-                tx_ema = tx_ema * (1.0 - EMA_ALPHA) + tx_rate * EMA_ALPHA;
+            rx_ema = rx_ema * (1.0 - EMA_ALPHA) + rx_rate * EMA_ALPHA;
+            tx_ema = tx_ema * (1.0 - EMA_ALPHA) + tx_rate * EMA_ALPHA;
 
-                net_str = format!("↓ {} ↑ {}", format_throughput(rx_ema), format_throughput(tx_ema));
-            }
+            net_str = format!("↓ {} ↑ {}", format_throughput(rx_ema), format_throughput(tx_ema));
         }
 
-        // GPU stats (every 4th tick - 1Hz at 4Hz base, nvidia-smi is relatively slow)
-        if tick % 4 == 0 {
+        // GPU stats (every 2nd tick at 2Hz base = 1Hz, nvidia-smi is slow)
+        if tick % 2 == 0 {
             if let Some(path) = nvidia_smi_path {
                 gpu_str = query_nvidia_gpu(path).map(|(util, mem_used, mem_total)| {
                     format!(
@@ -284,12 +282,14 @@ fn main() {
         // Always write to Linux path
         let _ = fs::write("/tmp/sysinfo", &output);
 
-        // Also write to Windows path if in WSL (for WezTerm to read without crossing boundary)
-        if let Some(ref win_path) = windows_sysinfo_path {
-            let _ = fs::write(win_path, &output);
+        // Write to Windows path less frequently (every 4th tick = 2s) since /mnt/c is slow (~12ms per write)
+        if tick % 4 == 0 {
+            if let Some(ref win_path) = windows_sysinfo_path {
+                let _ = fs::write(win_path, &output);
+            }
         }
 
         tick = tick.wrapping_add(1);
-        thread::sleep(Duration::from_millis(250)); // 4Hz base tick
+        thread::sleep(Duration::from_millis(500)); // 2Hz base tick
     }
 }

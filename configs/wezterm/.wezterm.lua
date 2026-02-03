@@ -440,7 +440,7 @@ local function update_sysinfo()
       end
     end
   end
-  wezterm.time.call_after(0.25, update_sysinfo)  -- 4Hz
+  wezterm.time.call_after(0.5, update_sysinfo)  -- 2Hz (matches daemon)
 end
 
 wezterm.time.call_after(0, update_sysinfo)
