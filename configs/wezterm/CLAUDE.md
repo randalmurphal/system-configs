@@ -4,10 +4,16 @@
 
 | Platform | Config Location | Actual File |
 |----------|-----------------|-------------|
-| Windows+WSL | `C:\Users\rmurphy\.wezterm.lua` | Symlink to WSL |
-| WSL (source) | `~/repos/system-configs/wezterm_configs/.wezterm.lua` | Edit this one |
+| Windows+WSL | `C:\Users\rmurphy\.wezterm.lua` | Copy from WSL source |
+| WSL (source) | `~/repos/system-configs/configs/wezterm/.wezterm.lua` | Edit this one |
 
-**Always edit the WSL file**, not the Windows symlink.
+**Always edit the WSL source file.** On WSL systems, WezTerm runs as a Windows process and reads from the Windows-side path (`C:\Users\rmurphy\.wezterm.lua`). After editing, copy the file to the Windows side:
+
+```bash
+cp ~/repos/system-configs/configs/wezterm/.wezterm.lua /mnt/c/Users/rmurphy/.wezterm.lua
+```
+
+If you skip this, WezTerm will keep running the old config.
 
 ## Config Structure
 
@@ -81,9 +87,10 @@ window:perform_action(wezterm.action.InputSelector {
 
 ## Testing Changes
 
-1. Edit `~/repos/system-configs/wezterm_configs/.wezterm.lua`
-2. In WezTerm: `Leader + r` to reload
-3. If syntax error: check WezTerm's debug overlay (`Leader + ?`)
+1. Edit `~/repos/system-configs/configs/wezterm/.wezterm.lua`
+2. Copy to Windows side: `cp ~/repos/system-configs/configs/wezterm/.wezterm.lua /mnt/c/Users/rmurphy/.wezterm.lua`
+3. In WezTerm: `Leader + r` to reload
+4. If syntax error: check WezTerm's debug overlay (`Leader + ?`)
 
 ## Known Limitations
 
