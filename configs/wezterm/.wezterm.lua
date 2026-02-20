@@ -13,9 +13,19 @@ local resurrect = wezterm.plugin.require("https://github.com/MLFlexer/resurrect.
 -- CORE SETTINGS
 -- =============================================================================
 
+-- Disable WezTerm's own update check (spawns a console process on startup)
+config.check_for_updates = false
+
 -- Default to WSL on Windows, native shell on Linux
 if wezterm.target_triple:find('windows') then
   config.default_domain = 'WSL:Ubuntu-24.04'
+  -- Explicit domain list so WezTerm skips running wsl.exe for discovery
+  config.wsl_domains = {
+    {
+      name = 'WSL:Ubuntu-24.04',
+      distribution = 'Ubuntu-24.04',
+    },
+  }
 end
 
 -- Performance tuning
