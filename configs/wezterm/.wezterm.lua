@@ -20,8 +20,8 @@ end
 
 -- Performance tuning
 config.front_end = 'OpenGL'               -- Safer default (WebGpu had issues on Windows/WSL)
-config.max_fps = 120                      -- Higher FPS for smoother feel
-config.animation_fps = 60
+config.max_fps = 60                       -- 60 is plenty; 120 wastes GPU on integrated graphics
+config.animation_fps = 30
 config.cursor_blink_rate = 0              -- Disable cursor blink (reduces redraws)
 
 -- =============================================================================
@@ -440,7 +440,7 @@ local function update_sysinfo()
       end
     end
   end
-  wezterm.time.call_after(0.5, update_sysinfo)  -- 2Hz (matches daemon)
+  wezterm.time.call_after(2, update_sysinfo)  -- 0.5Hz — status bar doesn't need sub-second updates
 end
 
 wezterm.time.call_after(0, update_sysinfo)
@@ -472,7 +472,7 @@ resurrect.state_manager.periodic_save({
   save_tabs = true,
 })
 
--- Restore last session on startup
-wezterm.on("gui-startup", resurrect.state_manager.resurrect_on_gui_startup)
+-- No auto-restore on startup — each restored WSL pane flashes a conhost window.
+-- Use Leader + R to restore manually when you want it.
 
 return config

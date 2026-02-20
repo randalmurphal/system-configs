@@ -93,14 +93,20 @@ fn parse_net_dev(interface: &str) -> Option<(u64, u64)> {
 }
 
 /// Find nvidia-smi binary path (WSL puts it in a non-standard location)
+/// Checks file existence first to avoid failed process spawns on machines without a GPU.
 fn find_nvidia_smi() -> Option<&'static str> {
+    use std::path::Path;
+
     const PATHS: &[&str] = &[
         "/usr/lib/wsl/lib/nvidia-smi", // WSL2
         "/usr/bin/nvidia-smi",          // Standard Linux
-        "nvidia-smi",                   // In PATH
     ];
 
     for path in PATHS {
+        if !Path::new(path).is_file() {
+            continue;
+        }
+        // Binary exists, verify it actually works
         let result = Command::new(path).arg("--version").output();
         if result.map(|o| o.status.success()).unwrap_or(false) {
             return Some(path);
