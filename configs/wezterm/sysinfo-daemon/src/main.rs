@@ -1,3 +1,4 @@
+use sysinfo::{Networks, System};
 use std::{env, fs, path::PathBuf, process::Command, thread, time::Duration};
 
 /// Detect if running in WSL and return the Windows user's home path if so.
@@ -51,10 +52,10 @@ fn format_throughput(bytes_per_sec: f64) -> String {
     }
 }
 
-/// Find the best network interface to monitor.
-/// Priority: default route interface > first interface with traffic > first non-loopback
-fn detect_network_interface() -> Option<String> {
-    // Try to get the default route interface from /proc/net/route
+/// Find the best network interface to monitor (cross-platform).
+/// Priority: default route interface > first non-loopback from sysinfo
+fn detect_network_interface(networks: &Networks) -> Option<String> {
+    // Linux: try /proc/net/route for default route
     if let Ok(content) = fs::read_to_string("/proc/net/route") {
         for line in content.lines().skip(1) {
             let parts: Vec<&str> = line.split_whitespace().collect();
@@ -65,31 +66,41 @@ fn detect_network_interface() -> Option<String> {
         }
     }
 
-    // Fallback: find first non-loopback interface from /proc/net/dev
-    if let Ok(content) = fs::read_to_string("/proc/net/dev") {
-        for line in content.lines().skip(2) {
-            let iface = line.split(':').next()?.trim();
-            if iface != "lo" && !iface.starts_with("docker") && !iface.starts_with("br-") {
-                return Some(iface.to_string());
+    // macOS: use route command to find default interface
+    // route lives in /sbin which may not be in PATH (e.g. launchd agents)
+    if let Ok(output) = Command::new("/sbin/route").args(["-n", "get", "default"]).output() {
+        if output.status.success() {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                let trimmed = line.trim();
+                if let Some(iface) = trimmed.strip_prefix("interface:") {
+                    return Some(iface.trim().to_string());
+                }
             }
         }
     }
 
-    None
+    // Fallback: first non-loopback interface from sysinfo
+    let mut candidates: Vec<&str> = networks
+        .iter()
+        .map(|(name, _)| name.as_str())
+        .filter(|name| {
+            *name != "lo"
+                && !name.starts_with("docker")
+                && !name.starts_with("br-")
+                && !name.starts_with("veth")
+        })
+        .collect();
+    candidates.sort();
+    candidates.into_iter().next().map(|s| s.to_string())
 }
 
-fn parse_net_dev(interface: &str) -> Option<(u64, u64)> {
-    let content = fs::read_to_string("/proc/net/dev").ok()?;
-    let prefix = format!("{}:", interface);
-    for line in content.lines() {
-        if line.trim().starts_with(&prefix) {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            let rx = parts.get(1)?.parse().ok()?;
-            let tx = parts.get(9)?.parse().ok()?;
-            return Some((rx, tx));
-        }
-    }
-    None
+/// Get cumulative rx/tx bytes for a network interface from sysinfo.
+fn get_interface_bytes(networks: &Networks, interface: &str) -> Option<(u64, u64)> {
+    networks
+        .iter()
+        .find(|(name, _)| name.as_str() == interface)
+        .map(|(_, data)| (data.total_received(), data.total_transmitted()))
 }
 
 /// Find nvidia-smi binary path (WSL puts it in a non-standard location)
@@ -152,8 +163,9 @@ fn format_gpu_mem(mb: u32) -> String {
 }
 
 fn main() {
-    let mut prev_idle: u64 = 0;
-    let mut prev_total: u64 = 0;
+    let mut sys = System::new();
+    let mut networks = Networks::new_with_refreshed_list();
+
     let mut prev_rx: u64 = 0;
     let mut prev_tx: u64 = 0;
     let mut rx_ema: f64 = 0.0;
@@ -163,7 +175,7 @@ fn main() {
     let mut tick: u32 = 0;
     const EMA_ALPHA: f64 = 0.3; // 30% new, 70% history
 
-    // Detect WSL and Windows home path for dual-write
+    // Detect WSL and Windows home path for dual-write (no-op on macOS)
     let windows_sysinfo_path = detect_wsl_windows_home().map(|home| {
         let path = home.join(".wezterm-sysinfo");
         eprintln!("sysinfo-daemon: WSL detected, will also write to {:?}", path);
@@ -171,64 +183,45 @@ fn main() {
     });
 
     // Detect network interface once at startup
-    let net_interface = detect_network_interface();
+    let net_interface = detect_network_interface(&networks);
     if let Some(ref iface) = net_interface {
         eprintln!("sysinfo-daemon: monitoring interface {}", iface);
+        // Seed previous counters so first delta isn't "all bytes since boot"
+        if let Some((rx, tx)) = get_interface_bytes(&networks, iface) {
+            prev_rx = rx;
+            prev_tx = tx;
+        }
     } else {
         eprintln!("sysinfo-daemon: no network interface found, network stats disabled");
     }
 
-    // Check if nvidia-smi is available once at startup
+    // Check if nvidia-smi is available once at startup (Linux/WSL only, no-op on macOS)
     let nvidia_smi_path = find_nvidia_smi();
     if let Some(path) = nvidia_smi_path {
-        eprintln!("sysinfo-daemon: NVIDIA GPU detected at {}, enabling GPU stats", path);
+        eprintln!(
+            "sysinfo-daemon: NVIDIA GPU detected at {}, enabling GPU stats",
+            path
+        );
     }
+
+    // Initial CPU refresh (first reading will be ~0%, same as original behavior)
+    sys.refresh_cpu_usage();
 
     loop {
         // CPU (every tick at 2Hz base)
-        let cpu_pct = if let Ok(stat) = fs::read_to_string("/proc/stat") {
-            if let Some(cpu_line) = stat.lines().next() {
-                let vals: Vec<u64> = cpu_line
-                    .split_whitespace()
-                    .skip(1)
-                    .filter_map(|s| s.parse().ok())
-                    .collect();
-
-                if vals.len() >= 4 {
-                    // idle = idle + iowait (indices 3 and 4)
-                    let idle = vals[3] + vals.get(4).unwrap_or(&0);
-                    let total: u64 = vals.iter().sum();
-
-                    let diff_idle = idle.saturating_sub(prev_idle);
-                    let diff_total = total.saturating_sub(prev_total);
-
-                    prev_idle = idle;
-                    prev_total = total;
-
-                    if diff_total > 0 {
-                        100 * (diff_total - diff_idle) / diff_total
-                    } else {
-                        0
-                    }
-                } else {
-                    0
-                }
-            } else {
-                0
-            }
-        } else {
-            0
-        };
+        sys.refresh_cpu_usage();
+        let cpu_pct = sys.global_cpu_usage() as u64;
 
         // Network with EMA smoothing (every tick at 2Hz base = every 500ms)
         if let Some(ref iface) = net_interface {
-            let (rx, tx) = parse_net_dev(iface).unwrap_or((0, 0));
+            networks.refresh(true);
+            let (rx, tx) = get_interface_bytes(&networks, iface).unwrap_or((0, 0));
             let rx_rate = (rx.saturating_sub(prev_rx)) as f64 * 2.0; // 500ms interval, *2 = per second
             let tx_rate = (tx.saturating_sub(prev_tx)) as f64 * 2.0;
-                prev_rx = rx;
-                prev_tx = tx;
+            prev_rx = rx;
+            prev_tx = tx;
 
-                // Apply EMA: avg = avg * (1 - alpha) + new * alpha
+            // Apply EMA: avg = avg * (1 - alpha) + new * alpha
             rx_ema = rx_ema * (1.0 - EMA_ALPHA) + rx_rate * EMA_ALPHA;
             tx_ema = tx_ema * (1.0 - EMA_ALPHA) + tx_rate * EMA_ALPHA;
 
@@ -249,31 +242,11 @@ fn main() {
             }
         }
 
-        // Memory (every tick - 4Hz)
-        let mem_str = if let Ok(meminfo) = fs::read_to_string("/proc/meminfo") {
-            let mut total_mem = 0u64;
-            let mut avail_mem = 0u64;
-            for line in meminfo.lines() {
-                if line.starts_with("MemTotal:") {
-                    total_mem = line
-                        .split_whitespace()
-                        .nth(1)
-                        .and_then(|s| s.parse().ok())
-                        .unwrap_or(0);
-                } else if line.starts_with("MemAvailable:") {
-                    avail_mem = line
-                        .split_whitespace()
-                        .nth(1)
-                        .and_then(|s| s.parse().ok())
-                        .unwrap_or(0);
-                }
-            }
-            let used_mem_gb = (total_mem - avail_mem) as f64 / 1024.0 / 1024.0;
-            let total_mem_gb = total_mem as f64 / 1024.0 / 1024.0;
-            format!("RAM: {:.1}/{:.1}GB", used_mem_gb, total_mem_gb)
-        } else {
-            String::from("RAM: ?/?GB")
-        };
+        // Memory (every tick)
+        sys.refresh_memory();
+        let used_gb = sys.used_memory() as f64 / (1024.0 * 1024.0 * 1024.0);
+        let total_gb = sys.total_memory() as f64 / (1024.0 * 1024.0 * 1024.0);
+        let mem_str = format!("RAM: {:.1}/{:.1}GB", used_gb, total_gb);
 
         // Build output: NET || CPU | RAM | GPU (if available)
         // The || separator lets WezTerm split network from the rest
@@ -285,7 +258,7 @@ fn main() {
             None => format!("{}||CPU: {:3}% | {}", net_str, cpu_pct, mem_str),
         };
 
-        // Always write to Linux path
+        // Always write to /tmp/sysinfo
         let _ = fs::write("/tmp/sysinfo", &output);
 
         // Write to Windows path less frequently (every 4th tick = 2s) since /mnt/c is slow (~12ms per write)

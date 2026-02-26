@@ -161,9 +161,18 @@ install_sysinfo_daemon() {
     fi
 
     # Check if already installed and running
-    if [[ -f "$HOME/.local/bin/sysinfo-daemon" ]] && systemctl --user is-active sysinfo.service &>/dev/null; then
-        log_skip "Sysinfo daemon already installed and running"
-        return 0
+    if [[ -f "$HOME/.local/bin/sysinfo-daemon" ]]; then
+        if is_macos; then
+            if launchctl list com.user.sysinfo-daemon &>/dev/null; then
+                log_skip "Sysinfo daemon already installed and running"
+                return 0
+            fi
+        elif cmd_exists systemctl; then
+            if systemctl --user is-active sysinfo.service &>/dev/null; then
+                log_skip "Sysinfo daemon already installed and running"
+                return 0
+            fi
+        fi
     fi
 
     # Check for cargo (Rust toolchain)
@@ -189,8 +198,26 @@ install_sysinfo_daemon() {
     chmod +x "$HOME/.local/bin/sysinfo-daemon"
     log_success "Installed sysinfo-daemon binary"
 
-    # Install systemd user service
-    if [[ -f "$daemon_dir/sysinfo.service" ]]; then
+    # Install service (platform-specific)
+    if is_macos; then
+        local plist_name="com.user.sysinfo-daemon.plist"
+        local plist_dir="$HOME/Library/LaunchAgents"
+        ensure_dir "$plist_dir"
+
+        # Generate plist from template, replacing __HOME__ placeholder
+        sed "s|__HOME__|$HOME|g" "$daemon_dir/$plist_name" > "$plist_dir/$plist_name"
+
+        # Load the agent (unload first if already loaded, to pick up changes)
+        launchctl bootout "gui/$(id -u)/com.user.sysinfo-daemon" 2>/dev/null || true
+        launchctl bootstrap "gui/$(id -u)" "$plist_dir/$plist_name"
+        log_success "Sysinfo daemon launchd agent installed and started"
+
+        # Verify it's working
+        sleep 0.3
+        if [[ -f /tmp/sysinfo ]]; then
+            log_info "Output: $(cat /tmp/sysinfo)"
+        fi
+    elif [[ -f "$daemon_dir/sysinfo.service" ]]; then
         ensure_dir "$HOME/.config/systemd/user"
         cp "$daemon_dir/sysinfo.service" "$HOME/.config/systemd/user/"
 
@@ -208,7 +235,7 @@ install_sysinfo_daemon() {
             fi
         fi
     else
-        log_warn "Systemd service file not found - daemon installed but not auto-started"
+        log_warn "No service manager found - daemon installed but not auto-started"
         log_info "Run manually: ~/.local/bin/sysinfo-daemon &"
     fi
 }
@@ -241,8 +268,8 @@ install_terminal() {
     link_wezterm_config
     install_terminal_tools
 
-    # Optional: sysinfo-daemon for WezTerm status bar (Linux/WSL only)
-    if is_linux || [[ "${IS_WSL:-0}" == "1" ]]; then
+    # Optional: sysinfo-daemon for WezTerm status bar
+    if is_linux || [[ "${IS_WSL:-0}" == "1" ]] || is_macos; then
         install_sysinfo_daemon
     fi
 }
